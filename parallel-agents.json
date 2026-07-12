@@ -1,0 +1,30 @@
+{
+  "maxParallelAgents": 16,
+  "allowedExtensionTools": [],
+  "profiles": [
+    {
+      "name": "Dumb",
+      "provider": "openai-codex",
+      "model": "gpt-5.4-mini",
+      "thinkingLevel": "low"
+    },
+    {
+      "name": "Fast",
+      "provider": "cursor",
+      "model": "composer-2.5",
+      "thinkingLevel": "off"
+    },
+    {
+      "name": "Smart",
+      "provider": "openai-codex",
+      "model": "gpt-5.6-sol",
+      "thinkingLevel": "low"
+    },
+    {
+      "name": "Read-Reccomended",
+      "provider": "openai-codex",
+      "model": "gpt-5.6-terra",
+      "thinkingLevel": "medium"
+    }
+  ]
+}

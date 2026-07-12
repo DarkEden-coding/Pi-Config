@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "nextId": 2,
+  "memories": [
+    {
+      "id": 1,
+      "text": "After making extension code changes, ask the user to reload before attempting to test the changes in the live conversation/interceptor.",
+      "createdAt": "2026-05-08T14:15:24.930Z",
+      "updatedAt": "2026-05-08T14:15:24.930Z"
+    }
+  ]
+}

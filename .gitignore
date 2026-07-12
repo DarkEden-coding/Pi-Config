@@ -1,0 +1,12 @@
+# Keep this repository limited to the agent's shareable configuration.
+*
+!.gitignore
+!extensions/
+!extensions/**
+!skills/
+!skills/**
+!parallel-agents.json
+
+# Local/generated files inside otherwise tracked directories.
+**/.DS_Store
+extensions/.pi/pasted-images/
