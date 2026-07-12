@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "nextId": 7,
+  "memories": [
+    {
+      "id": 1,
+      "text": "Prefer asking the user follow-up questions over guessing functionality or implementation choices when requirements are ambiguous.",
+      "createdAt": "2026-04-14T12:41:04.641Z",
+      "updatedAt": "2026-04-14T12:41:04.641Z"
+    },
+    {
+      "id": 2,
+      "text": "Prefer using the edit file tool for file modifications instead of terminal/script-based rewrites when practical.",
+      "createdAt": "2026-05-19T16:40:16.954Z",
+      "updatedAt": "2026-05-19T16:40:16.954Z"
+    },
+    {
+      "id": 3,
+      "text": "When using parallel agents, use the Smart profile for editing/code changes and use Read-Reccomended only for readonly exploration/audits.",
+      "createdAt": "2026-07-11T02:32:25.380Z",
+      "updatedAt": "2026-07-11T02:32:25.380Z"
+    },
+    {
+      "id": 4,
+      "text": "Code-structure preferences: prioritize readability and maintainability over minimal line count or architectural purity, as flexible guidelines rather than rigid rules. Organize primarily by concrete responsibility/domain; keep top-level layouts easy to scan and add subfolders only when a capability has enough related files. Use a soft 400–500 line file-size review threshold, but split only along clear responsibilities, never merely to reduce line count. Clear, descriptive domain names are preferred; avoid abbreviations except universally established ones. Explicit, straightforward code is welcome even if longer, but every wrapper, abstraction, indirection, and code path should have a current purpose. Extract shared helpers after two similar uses when doing so improves readability. Use lightweight architectural patterns proactively to keep real boundaries clean, without ceremonial overengineering. Prefer direct imports; curate public APIs only at genuine subsystem boundaries.",
+      "createdAt": "2026-07-11T03:23:10.415Z",
+      "updatedAt": "2026-07-11T03:23:10.415Z"
+    },
+    {
+      "id": 5,
+      "text": "Testing and quality preferences: keep tests useful and minimal. Test critical workflows and regressions; test pure logic only when unusually complex. Prefer a few realistic integration/behavior tests, adding unit tests for complex isolated logic. Test observable behavior and public contracts; avoid mocks and implementation-detail assertions where practical. Do not target coverage percentages. Run relevant formatter/linter/typecheck before completion; run tests only when tests exist and are relevant, or when tests were added for an actual need. For errors, fail explicitly with actionable context and handle errors only where meaningful recovery or translation is possible.",
+      "createdAt": "2026-07-11T03:23:13.976Z",
+      "updatedAt": "2026-07-11T03:23:13.976Z"
+    },
+    {
+      "id": 6,
+      "text": "Coding style/workflow preferences: comments should explain why, constraints, and non-obvious tradeoffs rather than narrate clear code. Add docstrings/documentation comments to all named production functions and methods where supported, excluding trivial callbacks, anonymous functions, and test helpers. Explicitly type function parameters and returns where supported; local variables may rely on inference. Prefer existing project or standard-library code, but choose a mature library when it provides meaningfully better support/functionality. Respect established project conventions unless they cause significant maintainability problems; ask before restructuring. If nearby messy code or cleanup opportunities are found, ask before making related changes or cleanup rather than expanding scope automatically.",
+      "createdAt": "2026-07-11T03:23:18.453Z",
+      "updatedAt": "2026-07-11T03:23:18.453Z"
+    }
+  ]
+}

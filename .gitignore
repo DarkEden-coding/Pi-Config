@@ -6,6 +6,7 @@
 !skills/
 !skills/**
 !parallel-agents.json
+!memories.json
 
 # Local/generated files inside otherwise tracked directories.
 **/.DS_Store
