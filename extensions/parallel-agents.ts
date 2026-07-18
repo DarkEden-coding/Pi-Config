@@ -65,6 +65,7 @@ type AgentRunStats = {
 	reasoningLevel: ThinkingLevel;
 	status: AgentRunStatus;
 	actions: number;
+	cost: number;
 	filesRead: Set<string>;
 	filesEdited: Set<string>;
 };
@@ -228,6 +229,11 @@ async function runSubAgent(
 			onStatsChange();
 			return;
 		}
+		if (event.type === "message_end" && event.message?.role === "assistant") {
+			stats.cost += event.message.usage?.cost?.total ?? 0;
+			onStatsChange();
+			return;
+		}
 		if (event.type === "tool_execution_end") {
 			debugLog("tool-end", { agent: task.name ?? modelConfig.name, tool: event.toolName, isError: event.isError, result: event.result });
 		}
@@ -278,6 +284,20 @@ async function selectAgentModel(ctx: ExtensionContext): Promise<AgentModel | und
 }
 
 export default function parallelAgentsExtension(pi: ExtensionAPI) {
+	const sessionCostByModel = new Map<string, number>();
+
+	/** Displays total sub-agent cost separately from the cost of each model used. */
+	const renderCostStatus = (ctx: ExtensionContext) => {
+		const costs = [...sessionCostByModel.entries()].filter(([, cost]) => cost > 0);
+		if (costs.length === 0) {
+			ctx.ui.setStatus("parallel-agent-cost", undefined);
+			return;
+		}
+		const total = costs.reduce((sum, [, cost]) => sum + cost, 0);
+		const byModel = costs.map(([model, cost]) => `${model} $${cost.toFixed(4)}`).join(" · ");
+		ctx.ui.setStatus("parallel-agent-cost", ctx.ui.theme.fg("dim", `subagents $${total.toFixed(4)} · ${byModel}`));
+	};
+
 	pi.registerTool({
 		name: "parallel_agents",
 		label: "Parallel Agents",
@@ -306,6 +326,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 				reasoningLevel: task.reasoningLevel,
 				status: "active",
 				actions: 0,
+				cost: 0,
 				filesRead: new Set<string>(),
 				filesEdited: new Set<string>(),
 			}));
@@ -323,8 +344,18 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 			renderStats();
 			const spinnerTimer = setInterval(() => { spinnerIndex++; renderStats(); }, 120);
 			onUpdate?.({ content: [{ type: "text", text: `Starting ${params.tasks.length} parallel sub-agent(s)...` }], details: {} });
+			const reportedCosts = stats.map(() => 0);
+			const updateStatsAndCosts = (index: number) => {
+				const costDelta = stats[index].cost - reportedCosts[index];
+				if (costDelta !== 0) {
+					sessionCostByModel.set(stats[index].model, (sessionCostByModel.get(stats[index].model) ?? 0) + costDelta);
+					reportedCosts[index] = stats[index].cost;
+					renderCostStatus(ctx);
+				}
+				renderStats();
+			};
 			const settled = await Promise.allSettled(params.tasks.map((task, index) =>
-				runSubAgent(task, findEnabledModel(config, task.model)!, config, ctx, stats[index], renderStats)));
+				runSubAgent(task, findEnabledModel(config, task.model)!, config, ctx, stats[index], () => updateStatsAndCosts(index))));
 			clearInterval(spinnerTimer);
 			renderStats();
 			const results = settled.map((item, index) => item.status === "fulfilled" ? item.value : {
@@ -389,6 +420,8 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_start", (_event, ctx) => {
+		sessionCostByModel.clear();
+		ctx.ui.setStatus("parallel-agent-cost", undefined);
 		const config = loadConfig();
 		const enabledCount = config.models.filter((model) => model.enabled).length;
 		ctx.ui.setStatus("parallel-agents", ctx.ui.theme.fg("dim", `subagents:${enabledCount}/${config.models.length}`));
