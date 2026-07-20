@@ -192,6 +192,15 @@ function updateAttachedImagesWidget(ctx: ClipboardPasteContext): void {
 	ctx.ui.setWidget("clipboard-image-paste-attached-images", attachedImagesLines(), { placement: "belowEditor" });
 }
 
+/** Paste editor text and force Pi to render mutations made by asynchronous terminal-input handlers. */
+function pasteToEditor(ctx: ClipboardPasteContext, text: string): void {
+	ctx.ui.pasteToEditor(text);
+	// pasteToEditor mutates the editor but does not currently request a TUI render.
+	// Re-applying this extension's widget is a public-API render trigger, including
+	// when no images are attached and the widget remains absent.
+	updateAttachedImagesWidget(ctx);
+}
+
 function removeTrailingImagePlaceholder(ctx: ClipboardPasteContext): boolean {
 	const text = ctx.ui.getEditorText();
 	const image = [...pendingImages]
@@ -211,8 +220,7 @@ function attachImage(ctx: ClipboardPasteContext, data: string, mediaType = "imag
 	const imageId = nextImageId++;
 	const placeholder = `[Image ${imageId}]`;
 	pendingImages.push({ id: imageId, placeholder, mediaType, data, insertedAt: Date.now() });
-	ctx.ui.pasteToEditor(placeholder);
-	updateAttachedImagesWidget(ctx);
+	pasteToEditor(ctx, placeholder);
 	ctx.ui.notify(attachedImagesLines()?.join("\n") ?? "Attached images:", "info");
 }
 
@@ -243,7 +251,7 @@ async function pasteFromClipboard(ctx: ClipboardPasteContext): Promise<void> {
 		try {
 			const text = await readClipboardText();
 			if (text.length > 0) {
-				ctx.ui.pasteToEditor(text);
+				pasteToEditor(ctx, text);
 				return;
 			}
 			ctx.ui.notify(
@@ -289,7 +297,7 @@ export default function clipboardImagePaste(pi: ExtensionAPI) {
 			// Route multi-line chunks through Pi's editor paste path so they stay in a
 			// single message and still use the compact large-paste display.
 			if (looksLikeUnbracketedMultiLinePaste(data)) {
-				ctx.ui.pasteToEditor(normalizeTerminalPasteText(data));
+				pasteToEditor(ctx, normalizeTerminalPasteText(data));
 				return { consume: true };
 			}
 
@@ -303,7 +311,7 @@ export default function clipboardImagePaste(pi: ExtensionAPI) {
 				if (completePaste.length === 0) {
 					void pasteFromClipboard(ctx);
 				} else {
-					ctx.ui.pasteToEditor(completePaste);
+					pasteToEditor(ctx, completePaste);
 				}
 				return { consume: true };
 			}
@@ -318,7 +326,7 @@ export default function clipboardImagePaste(pi: ExtensionAPI) {
 					if (pasteContent.length === 0) {
 						void pasteFromClipboard(ctx);
 					} else {
-						ctx.ui.pasteToEditor(pasteContent);
+						pasteToEditor(ctx, pasteContent);
 					}
 				}
 				return { consume: true };
@@ -332,7 +340,7 @@ export default function clipboardImagePaste(pi: ExtensionAPI) {
 					if (pasteContent.length === 0) {
 						void pasteFromClipboard(ctx);
 					} else {
-						ctx.ui.pasteToEditor(pasteContent);
+						pasteToEditor(ctx, pasteContent);
 					}
 				}
 				return { consume: true };

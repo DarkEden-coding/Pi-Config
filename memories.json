@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextId": 7,
+  "nextId": 8,
   "memories": [
     {
       "id": 1,
@@ -16,9 +16,9 @@
     },
     {
       "id": 3,
-      "text": "When using parallel agents, use the Smart profile for editing/code changes and use Read-Reccomended only for readonly exploration/audits.",
+      "text": "Parallel-agent model selection: use gpt-5.6-luna for basic read-only file inspection, understanding what code does, summaries, and similarly lightweight tasks, generally at medium reasoning. Use gpt-5.6-sol for intensive or important audits, complex reasoning, and difficult code changes; for non-planning Sol tasks, use low reasoning by default because it is almost always sufficient. Sol at low reasoning is also recommended for code changes. Use higher Sol reasoning only when a task clearly requires it. Use gpt-5.6-terra for work between those extremes and ordinary scoped implementation, choosing reasoning level based on the task. Use Luna for editing only for lightweight routine changes.",
       "createdAt": "2026-07-11T02:32:25.380Z",
-      "updatedAt": "2026-07-11T02:32:25.380Z"
+      "updatedAt": "2026-07-20T01:40:33.659Z"
     },
     {
       "id": 4,
@@ -37,6 +37,12 @@
       "text": "Coding style/workflow preferences: comments should explain why, constraints, and non-obvious tradeoffs rather than narrate clear code. Add docstrings/documentation comments to all named production functions and methods where supported, excluding trivial callbacks, anonymous functions, and test helpers. Explicitly type function parameters and returns where supported; local variables may rely on inference. Prefer existing project or standard-library code, but choose a mature library when it provides meaningfully better support/functionality. Respect established project conventions unless they cause significant maintainability problems; ask before restructuring. If nearby messy code or cleanup opportunities are found, ask before making related changes or cleanup rather than expanding scope automatically.",
       "createdAt": "2026-07-11T03:23:18.453Z",
       "updatedAt": "2026-07-11T03:23:18.453Z"
+    },
+    {
+      "id": 7,
+      "text": "TypeScript is installed globally on this machine. For TypeScript validation, use the global `tsc` command (currently TypeScript 7.0.2) rather than `npx tsc`.",
+      "createdAt": "2026-07-18T17:23:53.630Z",
+      "updatedAt": "2026-07-18T17:23:53.630Z"
     }
   ]
 }
