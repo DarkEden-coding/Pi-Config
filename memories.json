@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextId": 8,
+  "nextId": 9,
   "memories": [
     {
       "id": 1,
@@ -43,6 +43,12 @@
       "text": "TypeScript is installed globally on this machine. For TypeScript validation, use the global `tsc` command (currently TypeScript 7.0.2) rather than `npx tsc`.",
       "createdAt": "2026-07-18T17:23:53.630Z",
       "updatedAt": "2026-07-18T17:23:53.630Z"
+    },
+    {
+      "id": 8,
+      "text": "Keep production contracts explicit: when a collaborator/object is guaranteed by the architecture, call its required methods directly rather than using defensive getattr/callable/hasattr fallbacks merely to accommodate incomplete test doubles. Update tests and fakes to implement the production interface; do not weaken clean production code for mocks.",
+      "createdAt": "2026-07-20T22:18:55.520Z",
+      "updatedAt": "2026-07-20T22:18:55.520Z"
     }
   ]
 }

@@ -64,6 +64,7 @@ type AgentRunStats = {
 	model: string;
 	reasoningLevel: ThinkingLevel;
 	status: AgentRunStatus;
+	iterations: number;
 	actions: number;
 	cost: number;
 	filesRead: Set<string>;
@@ -220,6 +221,11 @@ async function runSubAgent(
 
 	debugLog("sub-agent-start", { name: task.name, model: modelConfig.name, reasoningLevel: task.reasoningLevel });
 	const unsubscribe = session.subscribe((event: any) => {
+		if (event.type === "turn_start") {
+			stats.iterations++;
+			onStatsChange();
+			return;
+		}
 		if (event.type === "tool_execution_start") {
 			stats.actions++;
 			const args = event.args ?? {};
@@ -325,6 +331,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 				model: task.model,
 				reasoningLevel: task.reasoningLevel,
 				status: "active",
+				iterations: 0,
 				actions: 0,
 				cost: 0,
 				filesRead: new Set<string>(),
@@ -336,7 +343,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 					const icon = stat.status === "active"
 						? ctx.ui.theme.fg("accent", SPINNER_FRAMES[spinnerIndex % SPINNER_FRAMES.length])
 						: stat.status === "done" ? ctx.ui.theme.fg("success", "✓") : ctx.ui.theme.fg("error", "✗");
-					const counts = `${stat.filesRead.size} read · ${stat.filesEdited.size} edited · ${stat.actions} actions`;
+					const counts = `${stat.iterations} iterations · ${stat.filesRead.size} read · ${stat.filesEdited.size} edited · ${stat.actions} actions`;
 					return `${icon} ${stat.name} (${stat.model}, ${stat.reasoningLevel}) ${ctx.ui.theme.fg("dim", counts)}`;
 				});
 				ctx.ui.setWidget("parallel-agents", [ctx.ui.theme.fg("accent", "Parallel sub-agents"), ...lines]);
