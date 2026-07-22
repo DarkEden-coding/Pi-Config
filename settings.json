@@ -1,0 +1,43 @@
+{
+  "lastChangelogVersion": "0.81.1",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.6-terra",
+  "defaultThinkingLevel": "low",
+  "theme": "reference-tool-cards",
+  "packages": [
+    {
+      "source": "npm:@netandreus/pi-cursor-provider",
+      "extensions": [
+        "-index.ts"
+      ]
+    },
+    "npm:pi-cursor-sdk",
+    {
+      "source": "npm:@heyhuynhgiabuu/pi-pretty",
+      "extensions": [
+        "-dist\\index.js"
+      ]
+    },
+    "npm:pi-fff",
+    "npm:@heyhuynhgiabuu/pi-diff"
+  ],
+  "enabledModels": [
+    "openai-codex/gpt-5.6-sol",
+    "openai-codex/gpt-5.6-terra",
+    "openai-codex/gpt-5.6-luna",
+    "cursor/grok-4.5"
+  ],
+  "extensions": [
+    "-extensions\\image-analysis-handoff.ts",
+    "-extensions\\manual-openrouter-model-entry.ts"
+  ],
+  "steeringMode": "one-at-a-time",
+  "followUpMode": "one-at-a-time",
+  "quietStartup": false,
+  "enableInstallTelemetry": false,
+  "npmCommand": [
+    "C:\\Program Files\\nodejs\\npm.cmd"
+  ],
+  "transport": "websocket-cached",
+  "showCacheMissNotices": true
+}
