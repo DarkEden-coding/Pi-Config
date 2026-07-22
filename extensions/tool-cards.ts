@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { ExtensionAPI, ExtensionContext, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
@@ -140,7 +140,16 @@ function findToolExecutionModulePath(): string | undefined {
 	const relativePath = join("modes", "interactive", "components", "tool-execution.js");
 	const candidates: string[] = [];
 	const cliEntry = process.argv[1];
-	if (cliEntry) candidates.push(resolve(dirname(cliEntry), relativePath));
+	if (cliEntry) {
+		// Package-manager launchers are commonly symlinks on macOS/Linux (for
+		// example, /opt/homebrew/bin/pi -> .../dist/cli.js). Resolve the launcher
+		// before looking beside Pi's real CLI entrypoint.
+		try {
+			candidates.push(resolve(dirname(realpathSync(cliEntry)), relativePath));
+		} catch {
+			candidates.push(resolve(dirname(cliEntry), relativePath));
+		}
+	}
 	if (process.env.APPDATA) {
 		candidates.push(
 			resolve(
