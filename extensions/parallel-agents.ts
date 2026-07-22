@@ -8,6 +8,7 @@ import {
 	SettingsManager,
 	type ExtensionAPI,
 	type ExtensionContext,
+	type ThemeColor,
 } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 
@@ -71,7 +72,17 @@ type AgentRunStats = {
 	filesEdited: Set<string>;
 };
 
-const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+/** Maps a sub-agent reasoning level to the active theme's matching color. */
+function getReasoningColor(level: ThinkingLevel): ThemeColor {
+	switch (level) {
+		case "low":
+			return "thinkingLow";
+		case "medium":
+			return "thinkingMedium";
+		case "high":
+			return "thinkingHigh";
+	}
+}
 
 function ensureConfigDir() {
 	mkdirSync(dirname(CONFIG_PATH), { recursive: true });
@@ -291,6 +302,7 @@ async function selectAgentModel(ctx: ExtensionContext): Promise<AgentModel | und
 
 export default function parallelAgentsExtension(pi: ExtensionAPI) {
 	const sessionCostByModel = new Map<string, number>();
+	let progressRunToken = 0;
 
 	/** Displays total sub-agent cost separately from the cost of each model used. */
 	const renderCostStatus = (ctx: ExtensionContext) => {
@@ -317,6 +329,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 		],
 		parameters: PARALLEL_AGENTS_SCHEMA,
 		async execute(_toolCallId, params: ParallelAgentsInput, _signal, onUpdate, ctx) {
+			const runToken = ++progressRunToken;
 			const config = loadConfig();
 			if (config.models.length === 0) throw new Error(`No parallel-agent models configured in ${CONFIG_PATH}.`);
 			if (params.tasks.length === 0) throw new Error("No sub-agent tasks provided.");
@@ -337,19 +350,22 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 				filesRead: new Set<string>(),
 				filesEdited: new Set<string>(),
 			}));
-			let spinnerIndex = 0;
 			const renderStats = () => {
 				const lines = stats.map((stat) => {
+					const reasoningColor = getReasoningColor(stat.reasoningLevel);
 					const icon = stat.status === "active"
-						? ctx.ui.theme.fg("accent", SPINNER_FRAMES[spinnerIndex % SPINNER_FRAMES.length])
+						? ctx.ui.theme.fg(reasoningColor, "●")
 						: stat.status === "done" ? ctx.ui.theme.fg("success", "✓") : ctx.ui.theme.fg("error", "✗");
+					const identity = ctx.ui.theme.fg(
+						reasoningColor,
+						`${stat.name} (${stat.model}, ${stat.reasoningLevel})`,
+					);
 					const counts = `${stat.iterations} iterations · ${stat.filesRead.size} read · ${stat.filesEdited.size} edited · ${stat.actions} actions`;
-					return `${icon} ${stat.name} (${stat.model}, ${stat.reasoningLevel}) ${ctx.ui.theme.fg("dim", counts)}`;
+					return `${icon} ${identity} ${ctx.ui.theme.fg("dim", counts)}`;
 				});
 				ctx.ui.setWidget("parallel-agents", [ctx.ui.theme.fg("accent", "Parallel sub-agents"), ...lines]);
 			};
 			renderStats();
-			const spinnerTimer = setInterval(() => { spinnerIndex++; renderStats(); }, 120);
 			onUpdate?.({ content: [{ type: "text", text: `Starting ${params.tasks.length} parallel sub-agent(s)...` }], details: {} });
 			const reportedCosts = stats.map(() => 0);
 			const updateStatsAndCosts = (index: number) => {
@@ -363,14 +379,15 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 			};
 			const settled = await Promise.allSettled(params.tasks.map((task, index) =>
 				runSubAgent(task, findEnabledModel(config, task.model)!, config, ctx, stats[index], () => updateStatsAndCosts(index))));
-			clearInterval(spinnerTimer);
 			renderStats();
 			const results = settled.map((item, index) => item.status === "fulfilled" ? item.value : {
 				ok: false,
 				name: params.tasks[index].name ?? params.tasks[index].model,
 				output: item.reason instanceof Error ? item.reason.message : String(item.reason),
 			});
-			setTimeout(() => ctx.ui.setWidget("parallel-agents", undefined), 1500);
+			setTimeout(() => {
+				if (progressRunToken === runToken) ctx.ui.setWidget("parallel-agents", undefined);
+			}, 1500);
 			return { content: [{ type: "text", text: formatResults(results) }], details: { results } };
 		},
 	});
@@ -427,7 +444,9 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_start", (_event, ctx) => {
+		progressRunToken++;
 		sessionCostByModel.clear();
+		ctx.ui.setWidget("parallel-agents", undefined);
 		ctx.ui.setStatus("parallel-agent-cost", undefined);
 		const config = loadConfig();
 		const enabledCount = config.models.filter((model) => model.enabled).length;

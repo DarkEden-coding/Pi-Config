@@ -103,10 +103,13 @@ export default function bannerStats(pi: ExtensionAPI) {
   });
 
   function processEditDiff(toolName: string, input: any, details: any) {
-    if (toolName !== "edit" || !details?.diff || !input?.path) return;
-    
-    const diff = details.diff as string;
-    const lines = diff.split("\n");
+    if (
+      toolName !== "edit" ||
+      typeof input?.path !== "string" ||
+      typeof details?.diff !== "string"
+    ) return;
+
+    const lines = details.diff.split("\n");
     let added = 0;
     let deleted = 0;
 
@@ -128,7 +131,7 @@ export default function bannerStats(pi: ExtensionAPI) {
     if (toolName !== "write" || !input?.path) return;
     
     const current = fileChanges.get(input.path) || { added: 0, deleted: 0 };
-    const lineCount = input.content?.split("\n").length || 0;
+    const lineCount = typeof input.content === "string" ? input.content.split("\n").length : 0;
     
     // We treat write as "added everything", though it's technically an overwrite.
     // Without the previous version of the file, we can't know the true delta.
