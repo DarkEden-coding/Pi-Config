@@ -26,35 +26,34 @@ const START_SCHEMA = Type.Object({
 	})),
 });
 
-const TERMINAL_ID_SCHEMA = Type.Object({
-	id: Type.String({ description: "Background terminal ID returned by background_terminal_start." }),
-});
-
-const WAIT_SCHEMA = Type.Object({
-	id: Type.String({ description: "Background terminal ID returned by background_terminal_start." }),
+const CONTROL_SCHEMA = Type.Object({
+	action: Type.Union([
+		Type.Literal("status"),
+		Type.Literal("read"),
+		Type.Literal("wait"),
+		Type.Literal("stop"),
+	], {
+		description: "Operation to perform: status returns metadata, read returns log output, wait waits for completion, and stop terminates the terminal.",
+	}),
+	id: Type.String({ description: "Background terminal ID returned by background_terminal." }),
 	timeoutSeconds: Type.Optional(Type.Number({
-		description: "Optional maximum time to wait. Omitting it waits until the terminal finishes.",
+		description: "For wait: maximum time to wait without stopping the terminal. Omit to wait until it finishes.",
 		exclusiveMinimum: 0,
 	})),
-});
-
-const READ_SCHEMA = Type.Object({
-	id: Type.String({ description: "Background terminal ID returned by background_terminal_start." }),
 	maxBytes: Type.Optional(Type.Integer({
-		description: `Maximum log bytes to return from the tail (default ${formatSize(DEFAULT_MAX_BYTES)}).`,
+		description: `For read: maximum log bytes to return from the tail (default ${formatSize(DEFAULT_MAX_BYTES)}).`,
 		minimum: 1,
 		maximum: 1024 * 1024,
 	})),
 	maxLines: Type.Optional(Type.Integer({
-		description: `Maximum log lines to return from the tail (default ${DEFAULT_MAX_LINES}).`,
+		description: `For read: maximum log lines to return from the tail (default ${DEFAULT_MAX_LINES}).`,
 		minimum: 1,
 		maximum: 10000,
 	})),
 });
 
 type StartInput = Static<typeof START_SCHEMA>;
-type WaitInput = Static<typeof WAIT_SCHEMA>;
-type ReadInput = Static<typeof READ_SCHEMA>;
+type ControlInput = Static<typeof CONTROL_SCHEMA>;
 type TerminalStatus = "running" | "completed" | "failed" | "stopped" | "timed_out";
 
 interface BackgroundTerminal {
@@ -140,7 +139,7 @@ function formatTerminal(terminal: BackgroundTerminal): string {
 /** Resolves a terminal ID or throws an actionable error. */
 function requireTerminal(terminals: Map<string, BackgroundTerminal>, id: string): BackgroundTerminal {
 	const terminal = terminals.get(id);
-	if (!terminal) throw new Error(`Unknown background terminal: ${id}. Terminal IDs are returned by background_terminal_start.`);
+	if (!terminal) throw new Error(`Unknown background terminal: ${id}. Terminal IDs are returned by background_terminal.`);
 	return terminal;
 }
 
@@ -214,13 +213,13 @@ export default function backgroundTerminalsExtension(pi: ExtensionAPI): void {
 	}
 
 	pi.registerTool({
-		name: "background_terminal_start",
-		label: "Start Background Terminal",
-		description: "Start one shell command or an ordered command list in a background terminal and return immediately. Output is written only to the returned log path: this tool does not read or stream it, and terminal completion does not append an agent message. Use background_terminal_read explicitly if the output is needed. Optionally enforces a maximum runtime.",
+		name: "background_terminal",
+		label: "Background Terminal",
+		description: "Start one shell command or an ordered command list in a background terminal and return immediately. Output is written only to the returned log path; use background_terminal_control to inspect, read, wait for, or stop it. Optionally enforces a maximum runtime.",
 		promptSnippet: "Start commands in a background terminal and return immediately.",
 		promptGuidelines: [
-			"Use background_terminal_start for useful long-running commands that can run while other work continues.",
-			"Use background_terminal_wait before relying on the result of a background terminal.",
+			"Use background_terminal for useful long-running commands that can run while other work continues.",
+			"Use background_terminal_control with action wait before relying on a background terminal's result.",
 		],
 		parameters: START_SCHEMA,
 		async execute(_toolCallId, params: StartInput, _signal, _onUpdate, ctx) {
@@ -231,24 +230,24 @@ export default function backgroundTerminalsExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.registerTool({
-		name: "background_terminal_read",
-		label: "Read Background Terminal",
-		description: `Explicitly read the current tail of a background terminal's combined stdout and stderr from its log file. Start, wait, and stop never read terminal output automatically. Output defaults to ${DEFAULT_MAX_LINES} lines or ${formatSize(DEFAULT_MAX_BYTES)} and is always truncated safely.`,
-		parameters: READ_SCHEMA,
-		async execute(_toolCallId, params: ReadInput) {
+		name: "background_terminal_control",
+		label: "Background Terminal Control",
+		description: `Inspect, read the output of, wait for, or stop a background terminal. The read action returns combined stdout and stderr, truncated to ${DEFAULT_MAX_LINES} lines or ${formatSize(DEFAULT_MAX_BYTES)} by default; all other actions return metadata only.`,
+		parameters: CONTROL_SCHEMA,
+		async execute(_toolCallId, params: ControlInput, signal) {
 			const terminal = requireTerminal(terminals, params.id);
-			const output = readLog(terminal, params.maxBytes, params.maxLines);
-			return { content: [{ type: "text", text: `${formatTerminal(terminal)}\n\n--- terminal output (tail) ---\n${output}` }], details: { id: terminal.id, status: terminal.status, logPath: terminal.logPath } };
-		},
-	});
+			if (params.action === "status") {
+				return { content: [{ type: "text", text: formatTerminal(terminal) }], details: { id: terminal.id, status: terminal.status, exitCode: terminal.exitCode, logPath: terminal.logPath } };
+			}
+			if (params.action === "read") {
+				const output = readLog(terminal, params.maxBytes, params.maxLines);
+				return { content: [{ type: "text", text: `${formatTerminal(terminal)}\n\n--- terminal output (tail) ---\n${output}` }], details: { id: terminal.id, status: terminal.status, logPath: terminal.logPath } };
+			}
+			if (params.action === "stop") {
+				await stopTerminal(terminal);
+				return { content: [{ type: "text", text: formatTerminal(terminal) }], details: { id: terminal.id, status: terminal.status, logPath: terminal.logPath } };
+			}
 
-	pi.registerTool({
-		name: "background_terminal_wait",
-		label: "Wait for Background Terminal",
-		description: "Wait until a background terminal finishes. An optional timeout limits only this wait and does not stop the terminal. Returns status and the log path only; it never reads terminal output. Use background_terminal_read explicitly if the output is needed.",
-		parameters: WAIT_SCHEMA,
-		async execute(_toolCallId, params: WaitInput, signal) {
-			const terminal = requireTerminal(terminals, params.id);
 			if (terminal.status === "running") {
 				let timeout: NodeJS.Timeout | undefined;
 				let abortHandler: (() => void) | undefined;
@@ -269,18 +268,6 @@ export default function backgroundTerminalsExtension(pi: ExtensionAPI): void {
 				if (result === "aborted") return { content: [{ type: "text", text: `Wait cancelled; terminal was not stopped.\n\n${formatTerminal(terminal)}` }], details: { id: terminal.id, status: terminal.status, waitCancelled: true, logPath: terminal.logPath } };
 			}
 			return { content: [{ type: "text", text: formatTerminal(terminal) }], details: { id: terminal.id, status: terminal.status, exitCode: terminal.exitCode, logPath: terminal.logPath } };
-		},
-	});
-
-	pi.registerTool({
-		name: "background_terminal_stop",
-		label: "Stop Background Terminal",
-		description: "Stop a running background terminal and its child processes. Returns status and the log path only; it never reads terminal output. Use background_terminal_read explicitly if the output is needed.",
-		parameters: TERMINAL_ID_SCHEMA,
-		async execute(_toolCallId, params) {
-			const terminal = requireTerminal(terminals, params.id);
-			await stopTerminal(terminal);
-			return { content: [{ type: "text", text: formatTerminal(terminal) }], details: { id: terminal.id, status: terminal.status, logPath: terminal.logPath } };
 		},
 	});
 

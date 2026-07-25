@@ -1,10 +1,8 @@
 {
   "maxParallelAgents": 16,
   "allowedExtensionTools": [
-    "background_terminal_start",
-    "background_terminal_read",
-    "background_terminal_wait",
-    "background_terminal_stop"
+    "background_terminal",
+    "background_terminal_control"
   ],
   "models": [
     {
