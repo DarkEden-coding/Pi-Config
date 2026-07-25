@@ -1,6 +1,11 @@
 {
   "maxParallelAgents": 16,
-  "allowedExtensionTools": [],
+  "allowedExtensionTools": [
+    "background_terminal_start",
+    "background_terminal_read",
+    "background_terminal_wait",
+    "background_terminal_stop"
+  ],
   "models": [
     {
       "name": "gpt-5.6-sol",
