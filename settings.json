@@ -15,7 +15,7 @@
     {
       "source": "npm:@heyhuynhgiabuu/pi-pretty",
       "extensions": [
-        "-dist\\index.js"
+        "-dist/index.js"
       ]
     },
     "npm:pi-fff",
@@ -28,16 +28,13 @@
     "cursor/grok-4.5"
   ],
   "extensions": [
-    "-extensions\\image-analysis-handoff.ts",
-    "-extensions\\manual-openrouter-model-entry.ts"
+    "-extensions/image-analysis-handoff.ts",
+    "-extensions/manual-openrouter-model-entry.ts"
   ],
   "steeringMode": "one-at-a-time",
   "followUpMode": "one-at-a-time",
   "quietStartup": false,
   "enableInstallTelemetry": false,
-  "npmCommand": [
-    "C:\\Program Files\\nodejs\\npm.cmd"
-  ],
   "transport": "websocket-cached",
   "showCacheMissNotices": true
 }
