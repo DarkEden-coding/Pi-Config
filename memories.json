@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextId": 9,
+  "nextId": 10,
   "memories": [
     {
       "id": 1,
@@ -16,9 +16,9 @@
     },
     {
       "id": 3,
-      "text": "Parallel-agent model selection: use gpt-5.6-luna for basic read-only file inspection, understanding what code does, summaries, and similarly lightweight tasks, generally at medium reasoning. Use gpt-5.6-sol for intensive or important audits, complex reasoning, and difficult code changes; for non-planning Sol tasks, use low reasoning by default because it is almost always sufficient. Sol at low reasoning is also recommended for code changes. Use higher Sol reasoning only when a task clearly requires it. Use gpt-5.6-terra for work between those extremes and ordinary scoped implementation, choosing reasoning level based on the task. Use Luna for editing only for lightweight routine changes.",
+      "text": "Parallel-agent usage: Do not use parallel agents frivolously; first assess whether parallelism provides meaningful benefit, and avoid patterns that unnecessarily increase agent usage, coordination, or cost. Use parallel_agents for genuinely independent work or when delegation materially improves quality/speed. Related tasks may be combined into one sub-agent task rather than split across multiple agents. When agents are appropriate, use gpt-5.6-luna for basic read-only file inspection, understanding code, summaries, and similarly lightweight tasks, generally at medium reasoning. Use gpt-5.6-sol for intensive or important audits, complex reasoning, and difficult code changes; for non-planning Sol tasks, use low reasoning by default because it is almost always sufficient. Use gpt-5.6-terra for work between those extremes and ordinary scoped implementation, choosing reasoning level based on task complexity. Read-only tasks must explicitly instruct the sub-agent never to edit files, mutate the repository, or perform other state-changing actions. For editing tasks, assign non-overlapping files or directories to concurrent sub-agents.",
       "createdAt": "2026-07-11T02:32:25.380Z",
-      "updatedAt": "2026-07-20T01:40:33.659Z"
+      "updatedAt": "2026-07-25T15:51:50.737Z"
     },
     {
       "id": 4,
@@ -49,6 +49,12 @@
       "text": "Keep production contracts explicit: when a collaborator/object is guaranteed by the architecture, call its required methods directly rather than using defensive getattr/callable/hasattr fallbacks merely to accommodate incomplete test doubles. Update tests and fakes to implement the production interface; do not weaken clean production code for mocks.",
       "createdAt": "2026-07-20T22:18:55.520Z",
       "updatedAt": "2026-07-20T22:18:55.520Z"
+    },
+    {
+      "id": 9,
+      "text": "Use regular foreground terminal commands by default. Only use background terminal tools when the command genuinely needs to keep running while other work continues.",
+      "createdAt": "2026-07-26T03:21:33.321Z",
+      "updatedAt": "2026-07-26T03:21:33.321Z"
     }
   ]
 }

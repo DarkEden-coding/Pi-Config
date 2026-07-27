@@ -1,6 +1,9 @@
 {
   "maxParallelAgents": 16,
-  "allowedExtensionTools": [],
+  "allowedExtensionTools": [
+    "background_terminal",
+    "background_terminal_control"
+  ],
   "models": [
     {
       "name": "gpt-5.6-sol",
@@ -21,6 +24,13 @@
       "provider": "openai-codex",
       "model": "gpt-5.6-luna",
       "description": "Fast choice for well-defined lightweight work such as summaries, code explanations, log analysis, review prechecks, and small routine changes.",
+      "enabled": true
+    },
+    {
+      "name": "claude-opus",
+      "backend": "claude-code",
+      "model": "opus",
+      "description": "Use for architectural planning, creative writing, planning-heavy work, and tasks whose requirements are underspecified. Low effort is usually sufficient and is roughly comparable to medium reasoning on GPT-5.6 Sol.",
       "enabled": true
     },
     {
