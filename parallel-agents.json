@@ -7,38 +7,42 @@
   "models": [
     {
       "name": "gpt-5.6-sol",
-      "provider": "openai-codex",
       "model": "gpt-5.6-sol",
       "description": "Flagship choice for difficult multi-file engineering, deep reasoning, long-horizon implementation, testing, and demanding review work.",
-      "enabled": true
+      "enabled": true,
+      "backend": "pi",
+      "provider": "openai-codex"
     },
     {
       "name": "gpt-5.6-terra",
-      "provider": "openai-codex",
       "model": "gpt-5.6-terra",
       "description": "Balanced choice for everyday development, scoped implementation, first-pass code review, documentation, and general production work.",
-      "enabled": true
+      "enabled": true,
+      "backend": "pi",
+      "provider": "openai-codex"
     },
     {
       "name": "gpt-5.6-luna",
-      "provider": "openai-codex",
       "model": "gpt-5.6-luna",
       "description": "Fast choice for well-defined lightweight work such as summaries, code explanations, log analysis, review prechecks, and small routine changes.",
-      "enabled": true
+      "enabled": true,
+      "backend": "pi",
+      "provider": "openai-codex"
     },
     {
       "name": "claude-opus",
-      "backend": "claude-code",
       "model": "opus",
       "description": "Use for architectural planning, creative writing, planning-heavy work, and tasks whose requirements are underspecified. Low effort is usually sufficient and is roughly comparable to medium reasoning on GPT-5.6 Sol.",
-      "enabled": true
+      "enabled": true,
+      "backend": "claude-code"
     },
     {
       "name": "grok-4.5",
-      "provider": "cursor",
       "model": "grok-4.5",
-      "description": "Efficient coding-focused choice for agentic software work, multi-step debugging, code generation, tool use, and sustained tasks in mainstream and systems languages.",
-      "enabled": false
+      "description": "Good at general implementation, use on high resoning for most tasks",
+      "enabled": true,
+      "backend": "pi",
+      "provider": "cursor"
     }
   ]
 }

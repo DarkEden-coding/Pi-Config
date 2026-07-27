@@ -6,6 +6,7 @@ import {
 	createAgentSession,
 	DefaultResourceLoader,
 	getAgentDir,
+	ModelRuntime,
 	SessionManager,
 	SettingsManager,
 	type ExtensionAPI,
@@ -297,16 +298,30 @@ async function runPiSubAgent(
 	// are applied to ctx.modelRegistry; a new registry only contains built-in/static
 	// models and would fail to find extension-provided model entries.
 	const modelRegistry = ctx.modelRegistry;
-	const model = modelRegistry.find(modelConfig.provider, modelConfig.model);
-	if (!model) {
+	const registeredModel = modelRegistry.find(modelConfig.provider, modelConfig.model);
+	if (!registeredModel) {
 		const available = modelRegistry.getAvailable().map((m) => `${m.provider}/${m.id}`).sort();
 		throw new Error(
 			`Model ${modelConfig.name} not found: ${modelConfig.provider}/${modelConfig.model}. Available models in active registry: ${available.join(", ") || "(none)"}`,
 		);
 	}
-	if (!modelRegistry.hasConfiguredAuth(model)) {
+	if (!modelRegistry.hasConfiguredAuth(registeredModel)) {
 		throw new Error(`Model ${modelConfig.name}: no auth configured for provider ${modelConfig.provider}`);
 	}
+
+	// Sub-agent sessions need their own runtime, but extension-provided providers
+	// must be copied from the live registry before that runtime can stream them.
+	const agentDir = getAgentDir();
+	const provider = modelRegistry.getProvider(modelConfig.provider);
+	if (!provider) {
+		throw new Error(`Model ${modelConfig.name}: provider ${modelConfig.provider} is not registered`);
+	}
+	const modelRuntime = await ModelRuntime.create({
+		authPath: join(agentDir, "auth.json"),
+		modelsPath: join(agentDir, "models.json"),
+	});
+	modelRuntime.registerNativeProvider(provider);
+	const model = modelRuntime.getModel(modelConfig.provider, modelConfig.model) ?? registeredModel;
 
 	const settingsManager = SettingsManager.inMemory({ compaction: { enabled: false } as any });
 	const loader = new DefaultResourceLoader({
@@ -325,10 +340,10 @@ async function runPiSubAgent(
 
 	const { session } = await createAgentSession({
 		cwd: ctx.cwd,
-		agentDir: getAgentDir(),
+		agentDir,
 		model,
 		thinkingLevel: task.reasoningLevel,
-		modelRegistry,
+		modelRuntime,
 		settingsManager,
 		resourceLoader: loader,
 		sessionManager: SessionManager.inMemory(ctx.cwd),
