@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextId": 9,
+  "nextId": 10,
   "memories": [
     {
       "id": 1,
@@ -49,6 +49,12 @@
       "text": "Keep production contracts explicit: when a collaborator/object is guaranteed by the architecture, call its required methods directly rather than using defensive getattr/callable/hasattr fallbacks merely to accommodate incomplete test doubles. Update tests and fakes to implement the production interface; do not weaken clean production code for mocks.",
       "createdAt": "2026-07-20T22:18:55.520Z",
       "updatedAt": "2026-07-20T22:18:55.520Z"
+    },
+    {
+      "id": 9,
+      "text": "Use regular foreground terminal commands by default. Only use background terminal tools when the command genuinely needs to keep running while other work continues.",
+      "createdAt": "2026-07-26T03:21:33.321Z",
+      "updatedAt": "2026-07-26T03:21:33.321Z"
     }
   ]
 }
