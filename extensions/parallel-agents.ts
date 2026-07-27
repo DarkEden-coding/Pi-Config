@@ -137,6 +137,11 @@ type ClaudeResultMessage = {
 	permission_denials?: unknown[];
 };
 
+type PiCliRunState = {
+	finalText?: string;
+	error?: string;
+};
+
 const CLAUDE_TOOLS = "Read,Glob,Grep,Edit,Write,Bash";
 const CLAUDE_MODEL_ALIASES = ["opus", "sonnet", "haiku", "fable"] as const;
 const CLAUDE_AUTH_ENVIRONMENT_OVERRIDES = [
@@ -533,6 +538,147 @@ function processClaudeEvent(
 	return undefined;
 }
 
+/** Extracts visible assistant text from a pi JSON message. */
+function getPiMessageText(message: Record<string, any> | undefined): string | undefined {
+	if (message?.role !== "assistant") return undefined;
+	if (typeof message.content === "string") return message.content.trim() || undefined;
+	if (!Array.isArray(message.content)) return undefined;
+	const text = message.content
+		.map((part: any) => (part?.type === "text" && typeof part.text === "string" ? part.text : ""))
+		.filter(Boolean)
+		.join("\n")
+		.trim();
+	return text || undefined;
+}
+
+/** Records one JSON event emitted by a non-interactive pi CLI run. */
+function processPiCliEvent(
+	event: Record<string, any>,
+	state: PiCliRunState,
+	stats: AgentRunStats,
+	onStatsChange: () => void,
+	onAction: (type: AgentAction["type"], toolName?: string, details?: unknown) => void,
+): void {
+	if (event.type === "turn_start") {
+		stats.iterations++;
+		onAction("turn_start");
+	}
+	if (event.type === "tool_execution_start") {
+		stats.actions++;
+		const args = event.args ?? {};
+		if (["read", "grep", "find", "ls"].includes(event.toolName) && typeof args.path === "string") {
+			stats.filesRead.add(args.path);
+		}
+		if (["edit", "write"].includes(event.toolName) && typeof args.path === "string") {
+			stats.filesEdited.add(args.path);
+		}
+		onAction("tool_start", event.toolName, args);
+	}
+	if (event.type === "tool_execution_end") {
+		onAction("tool_end", event.toolName, { isError: event.isError, result: event.result });
+	}
+	if (event.type === "message_end") {
+		state.finalText = getPiMessageText(event.message) ?? state.finalText;
+		stats.cost += event.message?.usage?.cost?.total ?? 0;
+		if (event.message?.stopReason === "error" && typeof event.message.errorMessage === "string") {
+			state.error = event.message.errorMessage;
+		}
+	}
+	if (event.type === "agent_end" && Array.isArray(event.messages)) {
+		for (const message of event.messages) {
+			state.finalText = getPiMessageText(message) ?? state.finalText;
+		}
+	}
+	onStatsChange();
+}
+
+/** Runs Cursor-backed models through pi exactly as a non-interactive user invocation. */
+async function runCursorCliSubAgent(
+	task: SubAgentTask,
+	modelConfig: PiAgentModel,
+	ctx: ExtensionContext,
+	stats: AgentRunStats,
+	onStatsChange: () => void,
+	onControllerReady: (controller: RunningAgentController) => void,
+	onAction: (type: AgentAction["type"], toolName?: string, details?: unknown) => void,
+): Promise<{ ok: boolean; name: string; output: string }> {
+	const args = [
+		"--model", `${modelConfig.provider}/${modelConfig.model}`,
+		"--thinking", task.reasoningLevel,
+		"--cursor-mode", "agent",
+		"--cursor-no-local-resume",
+		"--no-session",
+		"--mode", "json",
+		"--print",
+		"--exclude-tools", "parallel_agents,parallel_agents_control,ask_user_questions,ask_question",
+		buildSubAgentPrompt(task, modelConfig),
+	];
+	const child: ChildProcessWithoutNullStreams = spawn("pi", args, {
+		cwd: ctx.cwd,
+		env: process.env,
+		stdio: ["pipe", "pipe", "pipe"],
+		windowsHide: true,
+	});
+	onControllerReady({ abort: () => { if (!child.killed) child.kill("SIGTERM"); } });
+	debugLog("cursor-cli-sub-agent-start", {
+		name: task.name,
+		model: `${modelConfig.provider}/${modelConfig.model}`,
+		reasoningLevel: task.reasoningLevel,
+	});
+
+	const state: PiCliRunState = {};
+	let stdoutBuffer = "";
+	let stderr = "";
+	child.stdout.setEncoding("utf8");
+	child.stderr.setEncoding("utf8");
+	child.stdout.on("data", (chunk: string) => {
+		stdoutBuffer += chunk;
+		const lines = stdoutBuffer.split(/\r?\n/);
+		stdoutBuffer = lines.pop() ?? "";
+		for (const line of lines) {
+			if (!line.trim()) continue;
+			try {
+				processPiCliEvent(JSON.parse(line), state, stats, onStatsChange, onAction);
+			} catch (error) {
+				debugLog("cursor-cli-stream-parse-failed", { line: line.slice(0, 2_000), error: String(error) });
+			}
+		}
+	});
+	child.stderr.on("data", (chunk: string) => {
+		stderr = `${stderr}${chunk}`.slice(-8_000);
+	});
+	child.stdin.end();
+
+	const exitCode = await new Promise<number>((resolve, reject) => {
+		child.once("error", (error) => reject(new Error(`Could not start pi CLI: ${error.message}`)));
+		child.once("close", (code) => resolve(code ?? -1));
+	});
+	if (stdoutBuffer.trim()) {
+		try {
+			processPiCliEvent(JSON.parse(stdoutBuffer), state, stats, onStatsChange, onAction);
+		} catch (error) {
+			debugLog("cursor-cli-final-stream-parse-failed", { line: stdoutBuffer.slice(0, 2_000), error: String(error) });
+		}
+	}
+	if (stats.status === "cancelled") {
+		return { ok: false, name: task.name ?? modelConfig.name, output: "Cancelled." };
+	}
+	if (exitCode !== 0 || state.error) {
+		stats.status = "failed";
+		const message = state.error || stderr.trim() || `pi CLI exited with code ${exitCode}`;
+		onAction("failed", undefined, message);
+		onStatsChange();
+		throw new Error(message);
+	}
+
+	stats.status = "done";
+	onAction("completed", undefined, { model: `${modelConfig.provider}/${modelConfig.model}` });
+	onStatsChange();
+	const output = state.finalText ?? "(Cursor sub-agent completed without a final text response)";
+	debugLog("cursor-cli-sub-agent-done", { name: task.name ?? modelConfig.name, output });
+	return { ok: true, name: task.name ?? modelConfig.name, output };
+}
+
 /** Runs an isolated task through the installed Claude Code CLI. */
 async function runClaudeCodeSubAgent(
 	task: SubAgentTask,
@@ -640,9 +786,13 @@ function runSubAgent(
 	onControllerReady: (controller: RunningAgentController) => void,
 	onAction: (type: AgentAction["type"], toolName?: string, details?: unknown) => void,
 ): Promise<{ ok: boolean; name: string; output: string }> {
-	return modelConfig.backend === "claude-code"
-		? runClaudeCodeSubAgent(task, modelConfig, ctx, stats, onStatsChange, onControllerReady, onAction)
-		: runPiSubAgent(task, modelConfig, config, ctx, stats, onStatsChange, onControllerReady, onAction);
+	if (modelConfig.backend === "claude-code") {
+		return runClaudeCodeSubAgent(task, modelConfig, ctx, stats, onStatsChange, onControllerReady, onAction);
+	}
+	if (modelConfig.provider === "cursor") {
+		return runCursorCliSubAgent(task, modelConfig, ctx, stats, onStatsChange, onControllerReady, onAction);
+	}
+	return runPiSubAgent(task, modelConfig, config, ctx, stats, onStatsChange, onControllerReady, onAction);
 }
 
 function formatResults(results: Array<{ ok: boolean; name: string; output: string }>): string {
