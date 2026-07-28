@@ -6,12 +6,14 @@ import {
 	createAgentSession,
 	DefaultResourceLoader,
 	getAgentDir,
+	ModelRuntime,
 	SessionManager,
 	SettingsManager,
 	type ExtensionAPI,
 	type ExtensionContext,
 	type ThemeColor,
 } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
 
 type ThinkingLevel = "low" | "medium" | "high";
@@ -72,14 +74,30 @@ const PARALLEL_AGENTS_SCHEMA = Type.Object({
 
 const PARALLEL_AGENTS_CONTROL_SCHEMA = Type.Object({
 	action: Type.String({
-		description: "One of: status (summarize progress), wait (wait for completion), read_actions (read a chronological segment of recorded sub-agent actions), or cancel (stop active sub-agents).",
+		description: "One of: status (summarize progress), wait (wait for completion), read_actions (read recorded sub-agent actions), read_results (read a chunk of completed sub-agent reports), or cancel (stop active sub-agents).",
 	}),
 	runId: Type.String({ description: "Run ID returned from a non-blocking parallel_agents call." }),
 	agents: Type.Optional(Type.Array(Type.String(), {
 		description: "Optional task names to limit action reading or cancellation. Omit to operate on every task in the run. Wait always waits for the complete run.",
 	})),
-	offset: Type.Optional(Type.Integer({ minimum: 0, description: "Zero-based action offset for read_actions. Defaults to 0." })),
-	limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, description: "Maximum actions for read_actions. Defaults to 20." })),
+	readRegion: Type.Optional(Type.Object({
+		start: Type.Integer({ minimum: 0, description: "First recorded action index to include (inclusive)." }),
+		end: Type.Integer({ minimum: 0, description: "Last recorded action index to include (inclusive)." }),
+	}, {
+		description: "For read_actions: an explicit inclusive range of recorded action indexes. Omit to return only the four newest actions.",
+	})),
+	reportRegion: Type.Optional(Type.Object({
+		start: Type.Integer({ minimum: 0, description: "First report character offset to include (inclusive)." }),
+		end: Type.Integer({ minimum: 0, description: "Last report character offset to include (inclusive)." }),
+	}, {
+		description: "For read_results: an explicit inclusive character range from each selected sub-agent report. Each call returns at most 4,000 characters per report; make another call for later text.",
+	})),
+	offset: Type.Optional(Type.Integer({ minimum: 0, description: "Deprecated: zero-based offset in the filtered action list. Use readRegion instead." })),
+	limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, description: "Deprecated: maximum actions from offset. Use readRegion instead." })),
+	timeoutSeconds: Type.Optional(Type.Number({
+		description: "For wait on a non-blocking run: maximum time to wait without cancelling the sub-agents. Omit to wait until completion.",
+		exclusiveMinimum: 0,
+	})),
 });
 
 type ParallelAgentsInput = Static<typeof PARALLEL_AGENTS_SCHEMA>;
@@ -134,6 +152,11 @@ type ClaudeResultMessage = {
 	total_cost_usd?: number;
 	modelUsage?: Record<string, unknown>;
 	permission_denials?: unknown[];
+};
+
+type PiCliRunState = {
+	finalText?: string;
+	error?: string;
 };
 
 const CLAUDE_TOOLS = "Read,Glob,Grep,Edit,Write,Bash";
@@ -258,10 +281,16 @@ function buildSubAgentPrompt(task: SubAgentTask, model: AgentModel): string {
 	return `You are an isolated coding sub-agent running as part of a parallel multi-agent task.\n\nRules:\n- Complete only the task below.\n- Follow all task constraints exactly, including any instruction that the work is read-only and must not edit files, mutate the repository, or perform state-changing actions.\n- If editing is allowed, keep edits focused and touch only files assigned in the task.\n- Do not ask the user questions. If information is missing, state assumptions in the final answer.\n- Avoid interactive commands and tools.\n- Final answer should be concise and directly useful to the main agent.${kimiEditRules}\n\nTask:\n${task.prompt}`;
 }
 
+const MAX_ACTION_DETAIL_CHARS = 800;
+const MAX_SUB_AGENT_RESULT_CHARS = 4_000;
+
+/** Limits action metadata so diagnostic logs cannot dominate the parent agent's context. */
 function formatActionDetails(value: unknown): string | undefined {
 	if (value === undefined) return undefined;
 	const text = typeof value === "string" ? value : JSON.stringify(value, (_key, item) => item instanceof Set ? [...item] : item);
-	return text.length > 2_000 ? `${text.slice(0, 2_000)}…` : text;
+	return text.length > MAX_ACTION_DETAIL_CHARS
+		? `${text.slice(0, MAX_ACTION_DETAIL_CHARS)}… [truncated]`
+		: text;
 }
 
 function getFinalAssistantText(session: any): string {
@@ -297,16 +326,30 @@ async function runPiSubAgent(
 	// are applied to ctx.modelRegistry; a new registry only contains built-in/static
 	// models and would fail to find extension-provided model entries.
 	const modelRegistry = ctx.modelRegistry;
-	const model = modelRegistry.find(modelConfig.provider, modelConfig.model);
-	if (!model) {
+	const registeredModel = modelRegistry.find(modelConfig.provider, modelConfig.model);
+	if (!registeredModel) {
 		const available = modelRegistry.getAvailable().map((m) => `${m.provider}/${m.id}`).sort();
 		throw new Error(
 			`Model ${modelConfig.name} not found: ${modelConfig.provider}/${modelConfig.model}. Available models in active registry: ${available.join(", ") || "(none)"}`,
 		);
 	}
-	if (!modelRegistry.hasConfiguredAuth(model)) {
+	if (!modelRegistry.hasConfiguredAuth(registeredModel)) {
 		throw new Error(`Model ${modelConfig.name}: no auth configured for provider ${modelConfig.provider}`);
 	}
+
+	// Sub-agent sessions need their own runtime, but extension-provided providers
+	// must be copied from the live registry before that runtime can stream them.
+	const agentDir = getAgentDir();
+	const provider = modelRegistry.getProvider(modelConfig.provider);
+	if (!provider) {
+		throw new Error(`Model ${modelConfig.name}: provider ${modelConfig.provider} is not registered`);
+	}
+	const modelRuntime = await ModelRuntime.create({
+		authPath: join(agentDir, "auth.json"),
+		modelsPath: join(agentDir, "models.json"),
+	});
+	modelRuntime.registerNativeProvider(provider);
+	const model = modelRuntime.getModel(modelConfig.provider, modelConfig.model) ?? registeredModel;
 
 	const settingsManager = SettingsManager.inMemory({ compaction: { enabled: false } as any });
 	const loader = new DefaultResourceLoader({
@@ -325,10 +368,10 @@ async function runPiSubAgent(
 
 	const { session } = await createAgentSession({
 		cwd: ctx.cwd,
-		agentDir: getAgentDir(),
+		agentDir,
 		model,
 		thinkingLevel: task.reasoningLevel,
-		modelRegistry,
+		modelRuntime,
 		settingsManager,
 		resourceLoader: loader,
 		sessionManager: SessionManager.inMemory(ctx.cwd),
@@ -518,6 +561,147 @@ function processClaudeEvent(
 	return undefined;
 }
 
+/** Extracts visible assistant text from a pi JSON message. */
+function getPiMessageText(message: Record<string, any> | undefined): string | undefined {
+	if (message?.role !== "assistant") return undefined;
+	if (typeof message.content === "string") return message.content.trim() || undefined;
+	if (!Array.isArray(message.content)) return undefined;
+	const text = message.content
+		.map((part: any) => (part?.type === "text" && typeof part.text === "string" ? part.text : ""))
+		.filter(Boolean)
+		.join("\n")
+		.trim();
+	return text || undefined;
+}
+
+/** Records one JSON event emitted by a non-interactive pi CLI run. */
+function processPiCliEvent(
+	event: Record<string, any>,
+	state: PiCliRunState,
+	stats: AgentRunStats,
+	onStatsChange: () => void,
+	onAction: (type: AgentAction["type"], toolName?: string, details?: unknown) => void,
+): void {
+	if (event.type === "turn_start") {
+		stats.iterations++;
+		onAction("turn_start");
+	}
+	if (event.type === "tool_execution_start") {
+		stats.actions++;
+		const args = event.args ?? {};
+		if (["read", "grep", "find", "ls"].includes(event.toolName) && typeof args.path === "string") {
+			stats.filesRead.add(args.path);
+		}
+		if (["edit", "write"].includes(event.toolName) && typeof args.path === "string") {
+			stats.filesEdited.add(args.path);
+		}
+		onAction("tool_start", event.toolName, args);
+	}
+	if (event.type === "tool_execution_end") {
+		onAction("tool_end", event.toolName, { isError: event.isError, result: event.result });
+	}
+	if (event.type === "message_end") {
+		state.finalText = getPiMessageText(event.message) ?? state.finalText;
+		stats.cost += event.message?.usage?.cost?.total ?? 0;
+		if (event.message?.stopReason === "error" && typeof event.message.errorMessage === "string") {
+			state.error = event.message.errorMessage;
+		}
+	}
+	if (event.type === "agent_end" && Array.isArray(event.messages)) {
+		for (const message of event.messages) {
+			state.finalText = getPiMessageText(message) ?? state.finalText;
+		}
+	}
+	onStatsChange();
+}
+
+/** Runs Cursor-backed models through pi exactly as a non-interactive user invocation. */
+async function runCursorCliSubAgent(
+	task: SubAgentTask,
+	modelConfig: PiAgentModel,
+	ctx: ExtensionContext,
+	stats: AgentRunStats,
+	onStatsChange: () => void,
+	onControllerReady: (controller: RunningAgentController) => void,
+	onAction: (type: AgentAction["type"], toolName?: string, details?: unknown) => void,
+): Promise<{ ok: boolean; name: string; output: string }> {
+	const args = [
+		"--model", `${modelConfig.provider}/${modelConfig.model}`,
+		"--thinking", task.reasoningLevel,
+		"--cursor-mode", "agent",
+		"--cursor-no-local-resume",
+		"--no-session",
+		"--mode", "json",
+		"--print",
+		"--exclude-tools", "parallel_agents,parallel_agents_control,ask_user_questions,ask_question",
+		buildSubAgentPrompt(task, modelConfig),
+	];
+	const child: ChildProcessWithoutNullStreams = spawn("pi", args, {
+		cwd: ctx.cwd,
+		env: process.env,
+		stdio: ["pipe", "pipe", "pipe"],
+		windowsHide: true,
+	});
+	onControllerReady({ abort: () => { if (!child.killed) child.kill("SIGTERM"); } });
+	debugLog("cursor-cli-sub-agent-start", {
+		name: task.name,
+		model: `${modelConfig.provider}/${modelConfig.model}`,
+		reasoningLevel: task.reasoningLevel,
+	});
+
+	const state: PiCliRunState = {};
+	let stdoutBuffer = "";
+	let stderr = "";
+	child.stdout.setEncoding("utf8");
+	child.stderr.setEncoding("utf8");
+	child.stdout.on("data", (chunk: string) => {
+		stdoutBuffer += chunk;
+		const lines = stdoutBuffer.split(/\r?\n/);
+		stdoutBuffer = lines.pop() ?? "";
+		for (const line of lines) {
+			if (!line.trim()) continue;
+			try {
+				processPiCliEvent(JSON.parse(line), state, stats, onStatsChange, onAction);
+			} catch (error) {
+				debugLog("cursor-cli-stream-parse-failed", { line: line.slice(0, 2_000), error: String(error) });
+			}
+		}
+	});
+	child.stderr.on("data", (chunk: string) => {
+		stderr = `${stderr}${chunk}`.slice(-8_000);
+	});
+	child.stdin.end();
+
+	const exitCode = await new Promise<number>((resolve, reject) => {
+		child.once("error", (error) => reject(new Error(`Could not start pi CLI: ${error.message}`)));
+		child.once("close", (code) => resolve(code ?? -1));
+	});
+	if (stdoutBuffer.trim()) {
+		try {
+			processPiCliEvent(JSON.parse(stdoutBuffer), state, stats, onStatsChange, onAction);
+		} catch (error) {
+			debugLog("cursor-cli-final-stream-parse-failed", { line: stdoutBuffer.slice(0, 2_000), error: String(error) });
+		}
+	}
+	if (stats.status === "cancelled") {
+		return { ok: false, name: task.name ?? modelConfig.name, output: "Cancelled." };
+	}
+	if (exitCode !== 0 || state.error) {
+		stats.status = "failed";
+		const message = state.error || stderr.trim() || `pi CLI exited with code ${exitCode}`;
+		onAction("failed", undefined, message);
+		onStatsChange();
+		throw new Error(message);
+	}
+
+	stats.status = "done";
+	onAction("completed", undefined, { model: `${modelConfig.provider}/${modelConfig.model}` });
+	onStatsChange();
+	const output = state.finalText ?? "(Cursor sub-agent completed without a final text response)";
+	debugLog("cursor-cli-sub-agent-done", { name: task.name ?? modelConfig.name, output });
+	return { ok: true, name: task.name ?? modelConfig.name, output };
+}
+
 /** Runs an isolated task through the installed Claude Code CLI. */
 async function runClaudeCodeSubAgent(
 	task: SubAgentTask,
@@ -625,18 +809,75 @@ function runSubAgent(
 	onControllerReady: (controller: RunningAgentController) => void,
 	onAction: (type: AgentAction["type"], toolName?: string, details?: unknown) => void,
 ): Promise<{ ok: boolean; name: string; output: string }> {
-	return modelConfig.backend === "claude-code"
-		? runClaudeCodeSubAgent(task, modelConfig, ctx, stats, onStatsChange, onControllerReady, onAction)
-		: runPiSubAgent(task, modelConfig, config, ctx, stats, onStatsChange, onControllerReady, onAction);
+	if (modelConfig.backend === "claude-code") {
+		return runClaudeCodeSubAgent(task, modelConfig, ctx, stats, onStatsChange, onControllerReady, onAction);
+	}
+	if (modelConfig.provider === "cursor") {
+		return runCursorCliSubAgent(task, modelConfig, ctx, stats, onStatsChange, onControllerReady, onAction);
+	}
+	return runPiSubAgent(task, modelConfig, config, ctx, stats, onStatsChange, onControllerReady, onAction);
 }
 
-function formatResults(results: Array<{ ok: boolean; name: string; output: string }>): string {
+/** Formats bounded report chunks so the parent can retrieve long reports without loading all of them at once. */
+function formatResults(
+	results: Array<{ ok: boolean; name: string; output: string }>,
+	reportRegion?: { start: number; end: number },
+): string {
 	return results
 		.map((result, index) => {
 			const status = result.ok ? "OK" : "ERROR";
-			return `## ${index + 1}. ${result.name} [${status}]\n\n${result.output}`;
+			const start = Math.min(reportRegion?.start ?? 0, result.output.length);
+			const requestedEnd = reportRegion?.end === undefined
+				? start + MAX_SUB_AGENT_RESULT_CHARS - 1
+				: Math.min(reportRegion.end, start + MAX_SUB_AGENT_RESULT_CHARS - 1);
+			const end = Math.min(requestedEnd + 1, result.output.length);
+			const output = result.output.slice(start, end);
+			const range = result.output.length > 0 ? `${start}-${Math.max(start, end - 1)}` : "empty";
+			const remaining = end < result.output.length
+				? `\n\n[Showing report characters ${range} of ${result.output.length}. Use parallel_agents_control read_results with reportRegion { start: ${end}, end: ${end + MAX_SUB_AGENT_RESULT_CHARS - 1} } for the next chunk.]`
+				: "";
+			return `## ${index + 1}. ${result.name} [${status}] · report ${range}/${result.output.length}\n\n${output}${remaining}`;
 		})
 		.join("\n\n---\n\n");
+}
+
+/** Waits for a background run without cancelling it when the caller times out or aborts. */
+async function waitForRun(
+	run: ParallelAgentRun,
+	timeoutSeconds: number | undefined,
+	signal: AbortSignal | undefined,
+): Promise<"completed" | "timed_out" | "aborted"> {
+	if (run.results) return "completed";
+
+	let timeout: NodeJS.Timeout | undefined;
+	let abortHandler: (() => void) | undefined;
+	const timeoutPromise = timeoutSeconds === undefined
+		? new Promise<"timed_out">(() => {})
+		: new Promise<"timed_out">((resolve) => {
+			timeout = setTimeout(() => resolve("timed_out"), timeoutSeconds * 1_000);
+		});
+	const abortPromise = new Promise<"aborted">((resolve) => {
+		if (signal?.aborted) resolve("aborted");
+		else if (signal) {
+			abortHandler = () => resolve("aborted");
+			signal.addEventListener("abort", abortHandler, { once: true });
+		}
+	});
+
+	try {
+		return await Promise.race([run.completion.then(() => "completed" as const), timeoutPromise, abortPromise]);
+	} finally {
+		if (timeout) clearTimeout(timeout);
+		if (signal && abortHandler) signal.removeEventListener("abort", abortHandler);
+	}
+}
+
+/** Formats a recorded sub-agent action for both model context and the interactive transcript. */
+function formatRecordedAction(action: AgentAction): string {
+	const tool = action.toolName ? `\n   Tool: ${action.toolName}` : "";
+	const parameters = action.type === "tool_start" && action.details ? `\n   Parameters: ${action.details}` : "";
+	const details = action.type !== "tool_start" && action.details ? `\n   Details: ${action.details}` : "";
+	return `${action.index}. ${action.agent} ${action.type}${tool}${parameters}${details}`;
 }
 
 async function selectPiAgentModel(ctx: ExtensionContext): Promise<PiAgentModel | undefined> {
@@ -675,8 +916,8 @@ async function selectClaudeCodeModel(ctx: ExtensionContext): Promise<ClaudeCodeA
 
 export default function parallelAgentsExtension(pi: ExtensionAPI) {
 	const sessionCostByModel = new Map<string, number>();
-	let progressRunToken = 0;
 	const runs = new Map<string, ParallelAgentRun>();
+	const progressWidgetKeys = new Set<string>();
 	let nextRunId = 1;
 
 	/** Displays estimated API-equivalent sub-agent usage separately from the main model. */
@@ -704,7 +945,6 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 		],
 		parameters: PARALLEL_AGENTS_SCHEMA,
 		async execute(_toolCallId, params: ParallelAgentsInput, _signal, onUpdate, ctx) {
-			const runToken = ++progressRunToken;
 			const config = loadConfig();
 			if (config.models.length === 0) throw new Error(`No parallel-agent models configured in ${CONFIG_PATH}.`);
 			if (params.tasks.length === 0) throw new Error("No sub-agent tasks provided.");
@@ -733,6 +973,9 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 				filesRead: new Set<string>(),
 				filesEdited: new Set<string>(),
 			}));
+			const runId = `parallel-${nextRunId++}`;
+			const progressWidgetKey = `parallel-agents:${runId}`;
+			progressWidgetKeys.add(progressWidgetKey);
 			const renderStats = () => {
 				const lines = stats.map((stat) => {
 					const reasoningColor = getReasoningColor(stat.reasoningLevel);
@@ -746,7 +989,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 					const counts = `${stat.iterations} iterations · ${stat.filesRead.size} read · ${stat.filesEdited.size} edited · ${stat.actions} actions`;
 					return `${icon} ${identity} ${ctx.ui.theme.fg("dim", counts)}`;
 				});
-				ctx.ui.setWidget("parallel-agents", [ctx.ui.theme.fg("accent", "Parallel sub-agents"), ...lines]);
+				ctx.ui.setWidget(progressWidgetKey, [ctx.ui.theme.fg("accent", `Parallel sub-agents · ${runId}`), ...lines]);
 			};
 			renderStats();
 			onUpdate?.({ content: [{ type: "text", text: `Starting ${params.tasks.length} parallel sub-agent(s)...` }], details: {} });
@@ -760,7 +1003,6 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 				}
 				renderStats();
 			};
-			const runId = `parallel-${nextRunId++}`;
 			const run: ParallelAgentRun = { id: runId, tasks: params.tasks, stats, actions: [], controllers: [], cancelRequested: new Set(), completion: Promise.resolve([]) };
 			runs.set(runId, run);
 			const settled = Promise.allSettled(params.tasks.map((task, index) => runSubAgent(
@@ -776,7 +1018,10 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 				});
 				run.results = results;
 				renderStats();
-				setTimeout(() => { if (progressRunToken === runToken) ctx.ui.setWidget("parallel-agents", undefined); }, 1500);
+				setTimeout(() => {
+					ctx.ui.setWidget(progressWidgetKey, undefined);
+					progressWidgetKeys.delete(progressWidgetKey);
+				}, 1500);
 				return results;
 			});
 			if (params.blocking === false) return { content: [{ type: "text", text: `Started ${params.tasks.length} background sub-agent(s). Run ID: ${runId}. Use parallel_agents_control to inspect, wait, read actions, or cancel.` }], details: { runId } };
@@ -789,18 +1034,75 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "parallel_agents_control",
 		label: "Parallel Agents Control",
-		description: "Inspect, wait for, read a segment of recorded actions from, or cancel a background parallel_agents run.",
+		description: "Inspect, wait for, read recent or explicitly ranged recorded actions, read bounded chunks of completed sub-agent reports, or cancel a background parallel_agents run. read_actions returns only the four newest actions by default; use readRegion for an explicit action-index range. Use read_results with reportRegion to retrieve a long report in 4,000-character chunks. The wait action accepts timeoutSeconds for a bounded wait and never cancels sub-agents when it expires.",
 		parameters: PARALLEL_AGENTS_CONTROL_SCHEMA,
-		async execute(_toolCallId, params: ParallelAgentsControlInput) {
+		renderCall(args, theme) {
+			const timeout = typeof args.timeoutSeconds === "number" ? ` · timeout ${args.timeoutSeconds}s` : "";
+			return new Text(theme.fg("toolTitle", theme.bold(`parallel_agents_control · ${args.action}`)) + theme.fg("dim", ` · ${args.runId}${timeout}`), 0, 0);
+		},
+		renderResult(result, { isPartial }, theme) {
+			if (isPartial) return new Text(theme.fg("dim", "Waiting for background sub-agents…"), 0, 0);
+			const actions = (result.details as { actions?: AgentAction[] } | undefined)?.actions;
+			if (actions) {
+				const heading = theme.fg("accent", "Recorded sub-agent tool calls");
+				const body = actions.length > 0
+					? actions.map(formatRecordedAction).join("\n")
+					: "No recorded actions in this segment.";
+				return new Text(`${heading}\n${body}`, 0, 0);
+			}
+			const content = result.content
+				.filter((part) => part.type === "text")
+				.map((part) => part.text)
+				.join("\n");
+			return new Text(content || theme.fg("dim", "Control action completed."), 0, 0);
+		},
+		async execute(_toolCallId, params: ParallelAgentsControlInput, signal) {
 			const run = runs.get(params.runId);
 			if (!run) throw new Error(`Unknown parallel-agent run ID: ${params.runId}.`);
 			const indexes = params.agents?.length ? run.stats.flatMap((stat, index) => params.agents!.includes(stat.name) ? [index] : []) : run.stats.map((_stat, index) => index);
 			if (indexes.length === 0) throw new Error("No matching task names in this run.");
 			if (params.action === "status") return { content: [{ type: "text", text: indexes.map((index) => `${run.stats[index].name}: ${run.stats[index].status}; ${run.stats[index].actions} actions`).join("\n") }], details: { runId: run.id } };
-			if (params.action === "wait") { const results = await run.completion; return { content: [{ type: "text", text: formatResults(indexes.map((index) => results[index])) }], details: { runId: run.id } }; }
-			if (params.action === "read_actions") { const offset = params.offset ?? 0; const actions = run.actions.filter((entry) => indexes.some((index) => run.stats[index].name === entry.agent)).slice(offset, offset + (params.limit ?? 20)); return { content: [{ type: "text", text: actions.length ? actions.map((entry) => `${entry.index}. ${entry.agent} ${entry.type}${entry.toolName ? ` (${entry.toolName})` : ""}${entry.details ? `\n   ${entry.details}` : ""}`).join("\n") : "No recorded actions in this segment." }], details: { runId: run.id, offset, totalActions: run.actions.length, actions } }; }
+			if (params.action === "wait") {
+				const outcome = await waitForRun(run, params.timeoutSeconds, signal);
+				if (outcome === "timed_out") {
+					return { content: [{ type: "text", text: `Wait timed out; background sub-agents are still running.\n\n${indexes.map((index) => `${run.stats[index].name}: ${run.stats[index].status}`).join("\n")}` }], details: { runId: run.id, waitTimedOut: true } };
+				}
+				if (outcome === "aborted") {
+					return { content: [{ type: "text", text: "Wait cancelled; background sub-agents were not stopped." }], details: { runId: run.id, waitCancelled: true } };
+				}
+				const results = run.results!;
+				return { content: [{ type: "text", text: formatResults(indexes.map((index) => results[index])) }], details: { runId: run.id } };
+			}
+			if (params.action === "read_results") {
+				if (params.reportRegion && params.reportRegion.end < params.reportRegion.start) {
+					throw new Error("reportRegion.end must be greater than or equal to reportRegion.start.");
+				}
+				if (!run.results) {
+					return { content: [{ type: "text", text: "Sub-agent reports are not available until the run completes. Use action wait or status first." }], details: { runId: run.id, status: "running" } };
+				}
+				const results = indexes.map((index) => run.results![index]);
+				return {
+					content: [{ type: "text", text: formatResults(results, params.reportRegion) }],
+					details: { runId: run.id, reportRegion: params.reportRegion },
+				};
+			}
+			if (params.action === "read_actions") {
+				if (params.readRegion && params.readRegion.end < params.readRegion.start) {
+					throw new Error("readRegion.end must be greater than or equal to readRegion.start.");
+				}
+				const matchingActions = run.actions.filter((entry) => indexes.some((index) => run.stats[index].name === entry.agent));
+				const actions = params.readRegion
+					? matchingActions.filter((entry) => entry.index >= params.readRegion!.start && entry.index <= params.readRegion!.end)
+					: params.offset !== undefined || params.limit !== undefined
+						? matchingActions.slice(params.offset ?? 0, (params.offset ?? 0) + (params.limit ?? 20))
+						: matchingActions.slice(-4);
+				return {
+					content: [{ type: "text", text: actions.length ? actions.map(formatRecordedAction).join("\n") : "No recorded actions in this region." }],
+					details: { runId: run.id, readRegion: params.readRegion, totalActions: matchingActions.length, actions },
+				};
+			}
 			if (params.action === "cancel") { await Promise.all(indexes.map(async (index) => { if (run.stats[index].status !== "active") return; run.cancelRequested.add(index); run.stats[index].status = "cancelled"; run.actions.push({ index: run.actions.length, timestamp: Date.now(), agent: run.stats[index].name, type: "cancelled", details: "Cancellation requested." }); await run.controllers[index]?.abort(); })); return { content: [{ type: "text", text: `Cancellation requested for ${indexes.map((index) => run.stats[index].name).join(", ")}.` }], details: { runId: run.id } }; }
-			throw new Error("action must be status, wait, read_actions, or cancel.");
+			throw new Error("action must be status, wait, read_actions, read_results, or cancel.");
 		},
 	});
 
@@ -865,16 +1167,19 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_start", (_event, ctx) => {
-		progressRunToken++;
 		sessionCostByModel.clear();
 		ctx.ui.setWidget("parallel-agents", undefined);
+		for (const key of progressWidgetKeys) ctx.ui.setWidget(key, undefined);
+		progressWidgetKeys.clear();
 		ctx.ui.setStatus("parallel-agent-cost", undefined);
 		const config = loadConfig();
 		const enabledCount = config.models.filter((model) => model.enabled).length;
 		ctx.ui.setStatus("parallel-agents", ctx.ui.theme.fg("dim", `subagents:${enabledCount}/${config.models.length}`));
 	});
 
-	pi.on("session_shutdown", async () => {
+	pi.on("session_shutdown", async (_event, ctx) => {
+		for (const key of progressWidgetKeys) ctx.ui.setWidget(key, undefined);
+		progressWidgetKeys.clear();
 		await Promise.all([...runs.values()].map((run) => Promise.all(run.controllers.map(async (controller, index) => {
 			if (controller && run.stats[index].status === "active") {
 				run.cancelRequested.add(index);

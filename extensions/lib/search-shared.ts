@@ -33,8 +33,14 @@ export function saveKeys(keys: Record<string, string>): void {
 	}
 }
 
-export function getApiKey(service: "brave" | "context7" | "exa"): string | undefined {
-	const envKey = service === "brave" ? process.env.BRAVE_API_KEY : service === "context7" ? process.env.CONTEXT7_API_KEY : process.env.EXA_API_KEY;
+export function getApiKey(service: "brave" | "context7" | "exa" | "openrouter"): string | undefined {
+	const envKey = service === "brave"
+		? process.env.BRAVE_API_KEY
+		: service === "context7"
+			? process.env.CONTEXT7_API_KEY
+			: service === "exa"
+				? process.env.EXA_API_KEY
+				: process.env.OPENROUTER_API_KEY;
 	if (envKey) return envKey;
 
 	const keys = loadKeys();

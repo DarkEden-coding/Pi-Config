@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextId": 10,
+  "nextId": 11,
   "memories": [
     {
       "id": 1,
@@ -55,6 +55,12 @@
       "text": "Use regular foreground terminal commands by default. Only use background terminal tools when the command genuinely needs to keep running while other work continues.",
       "createdAt": "2026-07-26T03:21:33.321Z",
       "updatedAt": "2026-07-26T03:21:33.321Z"
+    },
+    {
+      "id": 10,
+      "text": "When using the claude-opus parallel sub-agent, use low reasoning for all tasks except genuinely in-depth planning; reserve higher reasoning levels for in-depth planning only.",
+      "createdAt": "2026-07-27T19:38:05.210Z",
+      "updatedAt": "2026-07-27T19:38:05.210Z"
     }
   ]
 }
