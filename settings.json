@@ -1,25 +1,15 @@
 {
-  "lastChangelogVersion": "0.82.1",
+  "lastChangelogVersion": "0.83.0",
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.6-terra",
+  "defaultModel": "gpt-5.6-sol",
   "defaultThinkingLevel": "medium",
   "theme": "reference-tool-cards",
   "packages": [
-    {
-      "source": "npm:@netandreus/pi-cursor-provider",
-      "extensions": [
-        "-index.ts"
-      ]
-    },
     "npm:pi-cursor-sdk",
-    {
-      "source": "npm:@heyhuynhgiabuu/pi-pretty",
-      "extensions": [
-        "-dist/index.js"
-      ]
-    },
     "npm:pi-fff",
-    "npm:@heyhuynhgiabuu/pi-diff"
+    "npm:@heyhuynhgiabuu/pi-diff",
+    "git:github.com/DietrichGebert/ponytail",
+    "npm:pi-extmgr"
   ],
   "enabledModels": [
     "openai-codex/gpt-5.6-sol",

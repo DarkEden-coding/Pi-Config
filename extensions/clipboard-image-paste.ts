@@ -23,6 +23,25 @@ type PendingImage = {
 let nextImageId = 1;
 let pendingImages: PendingImage[] = [];
 
+/** Minimal shape of a focusable TUI component this extension may paste into. */
+type FocusTarget = {
+	handleInput?(data: string): void;
+	/** Present on the main editor component (EditorComponent), absent on dialog inputs/selectors. */
+	getText?(): string;
+	setText?(text: string): void;
+};
+
+type TUIHandle = {
+	/** Private in the public typings, but the runtime field this extension needs to route pastes. */
+	focusedComponent?: FocusTarget | null;
+	requestRender(force?: boolean): void;
+};
+
+type WidgetComponent = {
+	render(width: number): string[];
+	invalidate(): void;
+};
+
 type ClipboardPasteContext = {
 	cwd: string;
 	ui: {
@@ -30,9 +49,47 @@ type ClipboardPasteContext = {
 		notify(message: string, type?: "info" | "warning" | "error"): void;
 		getEditorText(): string;
 		setEditorText(text: string): void;
-		setWidget(key: string, content: string[] | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void;
+		setWidget(
+			key: string,
+			content: string[] | ((tui: unknown, theme: unknown) => WidgetComponent) | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		): void;
 	};
 };
+
+/**
+ * The TUI instance, captured from the attached-images widget factory. Used to discover which
+ * component currently has keyboard focus so pastes land in the focused field (API key prompts,
+ * extension inputs, dialogs) instead of always in the main editor.
+ */
+let tui: TUIHandle | undefined;
+
+function focusedComponent(): FocusTarget | undefined {
+	return tui?.focusedComponent ?? undefined;
+}
+
+/**
+ * Whether the main prompt editor owns keyboard input. Dialog fields (pi-tui `Input`) and
+ * selectors do not expose the EditorComponent getText/setText pair.
+ */
+function isMainEditorFocused(): boolean {
+	const focused = focusedComponent();
+	if (!focused) return true;
+	return typeof focused.getText === "function" && typeof focused.setText === "function";
+}
+
+function bracketPaste(text: string): string {
+	return `\x1b[200~${text}\x1b[201~`;
+}
+
+/** Paste text into the currently focused non-editor component. Returns false if that is not possible. */
+function pasteToFocused(text: string): boolean {
+	const focused = focusedComponent();
+	if (!focused || typeof focused.handleInput !== "function") return false;
+	focused.handleInput(bracketPaste(text));
+	tui?.requestRender();
+	return true;
+}
 
 async function readWindowsClipboardImage(): Promise<string> {
 	const script = `
@@ -188,17 +245,37 @@ function attachedImagesLines(): string[] | undefined {
 	return ["Attached images:", ...pendingImages.map((image) => `- ${image.placeholder}`)];
 }
 
+/**
+ * Always-registered widget. It renders nothing while no images are attached, and exists partly so
+ * its factory hands us the TUI instance needed for focus-aware paste routing.
+ */
+function attachedImagesWidget(tuiInstance: unknown): WidgetComponent {
+	tui = tuiInstance as TUIHandle;
+	return {
+		render(width: number): string[] {
+			const lines = attachedImagesLines();
+			if (!lines) return [];
+			return lines.map((line) => ` ${line}`.slice(0, Math.max(1, width)));
+		},
+		invalidate(): void {},
+	};
+}
+
 function updateAttachedImagesWidget(ctx: ClipboardPasteContext): void {
-	ctx.ui.setWidget("clipboard-image-paste-attached-images", attachedImagesLines(), { placement: "belowEditor" });
+	// Re-registering the factory both refreshes the rendered list and triggers a TUI render.
+	ctx.ui.setWidget("clipboard-image-paste-attached-images", (tuiInstance) => attachedImagesWidget(tuiInstance), {
+		placement: "belowEditor",
+	});
 }
 
 /** Paste editor text and force Pi to render mutations made by asynchronous terminal-input handlers. */
 function pasteToEditor(ctx: ClipboardPasteContext, text: string): void {
 	ctx.ui.pasteToEditor(text);
 	// pasteToEditor mutates the editor but does not currently request a TUI render.
-	// Re-applying this extension's widget is a public-API render trigger, including
-	// when no images are attached and the widget remains absent.
-	updateAttachedImagesWidget(ctx);
+	// Render directly when the TUI instance is known, otherwise re-apply this extension's
+	// widget, which is a public-API render trigger.
+	if (tui) tui.requestRender();
+	else updateAttachedImagesWidget(ctx);
 }
 
 function removeTrailingImagePlaceholder(ctx: ClipboardPasteContext): boolean {
@@ -267,26 +344,65 @@ async function pasteFromClipboard(ctx: ClipboardPasteContext): Promise<void> {
 	}
 }
 
+/** Paste clipboard text into a focused dialog field (API key prompts, extension inputs, ...). */
+async function pasteFromClipboardToFocusedField(ctx: ClipboardPasteContext): Promise<void> {
+	try {
+		const text = await readClipboardText();
+		if (text.length === 0) {
+			ctx.ui.notify("Clipboard has no text to paste into this field.", "warning");
+			return;
+		}
+		if (!pasteToFocused(normalizeTerminalPasteText(text))) {
+			ctx.ui.notify("The focused field does not accept pasted text.", "warning");
+		}
+	} catch (error) {
+		ctx.ui.notify(
+			`Could not paste from clipboard: ${error instanceof Error ? error.message : String(error)}`,
+			"error",
+		);
+	}
+}
+
+/** Route a paste command to whichever field currently has keyboard focus. */
+function pasteFromClipboardToFocusedTarget(ctx: ClipboardPasteContext): Promise<void> {
+	return isMainEditorFocused() ? pasteFromClipboard(ctx) : pasteFromClipboardToFocusedField(ctx);
+}
+
 export default function clipboardImagePaste(pi: ExtensionAPI) {
 	let unsubscribeTerminalInput: (() => void) | undefined;
 	let activeCtx: ClipboardPasteContext | undefined;
 
 	pi.on("session_start", (_event, ctx) => {
 		activeCtx = ctx;
+		// Register the (initially empty) widget up front so its factory hands us the TUI instance
+		// before any dialog can take focus.
+		updateAttachedImagesWidget(ctx);
 		unsubscribeTerminalInput?.();
 		let bracketedPasteBuffer: string | undefined;
 		unsubscribeTerminalInput = ctx.ui.onTerminalInput((data) => {
 			const swathImage = data.match(/^\x1b\]777;swath-image=([A-Za-z0-9+/=]+)\x07$/);
 			if (swathImage?.[1]) {
-				void attachImagePath(ctx, swathImage[1]);
+				if (isMainEditorFocused()) {
+					void attachImagePath(ctx, swathImage[1]);
+				} else {
+					ctx.ui.notify("Images can only be attached to the main prompt.", "warning");
+				}
 				return { consume: true };
 			}
 
 			// Fully take over Ctrl+V at the raw terminal-input layer, avoiding Pi's built-in
 			// paste-image implementation and preserving text paste fallback ourselves.
 			if (isCtrlV(data) || isPasteCommandShortcut(data)) {
-				void pasteFromClipboard(ctx);
+				void pasteFromClipboardToFocusedTarget(ctx);
 				return { consume: true };
+			}
+
+			// Everything below is main-editor behavior. While a dialog field or selector owns input
+			// (API key prompts, extension inputs, login dialogs), leave the raw data alone so the
+			// focused component's own bracketed-paste handling receives it.
+			if (!isMainEditorFocused()) {
+				bracketedPasteBuffer = undefined;
+				return undefined;
 			}
 
 			if (isDeleteKey(data) && removeTrailingImagePlaceholder(ctx)) {
@@ -384,6 +500,7 @@ export default function clipboardImagePaste(pi: ExtensionAPI) {
 		unsubscribeTerminalInput = undefined;
 		activeCtx?.ui.setWidget("clipboard-image-paste-attached-images", undefined, { placement: "belowEditor" });
 		activeCtx = undefined;
+		tui = undefined;
 		pendingImages = [];
 	});
 }
