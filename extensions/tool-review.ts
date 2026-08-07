@@ -474,6 +474,12 @@ function describeRule(rule: ReviewRule): string {
 	return `${rule.kind}: ${rule.value ?? ""}`;
 }
 
+/** Publishes the latest review outcome to TUI and RPC clients. */
+function setReviewStatus(ctx: ExtensionContext, toolCallId: string, outcome: "rule-approved" | "auto-approved" | "user-approved" | "denied" | "reviewing"): void {
+	const color = outcome === "denied" ? "error" : outcome === "reviewing" ? "warning" : "success";
+	ctx.ui.setStatus(`tool-review:${toolCallId}`, ctx.ui.theme.fg(color, outcome));
+}
+
 /** Global and inline extension factory for terminal tool review. */
 export const terminalToolReviewExtension: ExtensionFactory = (pi) => {
 	pi.registerCommand("tool-review-model", { description: "Select the terminal-call reviewer model", handler: async (_args, ctx) => configureReviewer(ctx) });
@@ -484,9 +490,16 @@ export const terminalToolReviewExtension: ExtensionFactory = (pi) => {
 	pi.on("tool_call", async (event, ctx) => {
 		const config = loadToolReviewConfig();
 		if (!config.gatedTools.includes(event.toolName)) return;
-		if (!config.reviewer) return { block: true, reason: "Terminal call blocked: configure a reviewer with /tool-review-model." };
+		if (!config.reviewer) {
+			setReviewStatus(ctx, event.toolCallId, "denied");
+			return { block: true, reason: "Terminal call blocked: configure a reviewer with /tool-review-model." };
+		}
 		const commands = extractCommands(event.input);
-		if (commands && commandsAreAllowed(commands, config.rules)) return;
+		if (commands && commandsAreAllowed(commands, config.rules)) {
+			setReviewStatus(ctx, event.toolCallId, "rule-approved");
+			return;
+		}
+		setReviewStatus(ctx, event.toolCallId, "reviewing");
 
 		let decision: ReviewDecision;
 		try {
@@ -497,11 +510,19 @@ export const terminalToolReviewExtension: ExtensionFactory = (pi) => {
 		if (decision.decision === "approve") {
 			const learned = await persistLearnedRules(decision.rules.filter((rule) => proposalIsGlobal(rule, ctx.cwd) && proposalMatchesCall(rule, commands)));
 			for (const rule of learned) ctx.ui.notify(`Learned terminal allow rule: ${describeRule(rule)}`, "info");
+			setReviewStatus(ctx, event.toolCallId, "auto-approved");
 			return;
 		}
-		if (!ctx.hasUI) return { block: true, reason: `${decision.summary}: ${decision.reason || "review requires user approval"}` };
+		if (!ctx.hasUI) {
+			setReviewStatus(ctx, event.toolCallId, "denied");
+			return { block: true, reason: `${decision.summary}: ${decision.reason || "review requires user approval"}` };
+		}
 		const choice = await ctx.ui.select(`${decision.summary}\n\nWhy approval is needed: ${decision.reason || "The reviewer could not safely auto-approve it."}`, ["Allow once", "Deny"]);
-		if (choice === "Allow once") return;
+		if (choice === "Allow once") {
+			setReviewStatus(ctx, event.toolCallId, "user-approved");
+			return;
+		}
+		setReviewStatus(ctx, event.toolCallId, "denied");
 		return { block: true, reason: `Denied by user: ${decision.reason || decision.summary}` };
 	});
 };
