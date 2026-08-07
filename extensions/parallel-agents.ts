@@ -15,6 +15,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
+import { loadToolReviewConfig, terminalToolReviewExtension } from "./tool-review.ts";
 
 type ThinkingLevel = "low" | "medium" | "high";
 
@@ -349,6 +350,11 @@ async function runPiSubAgent(
 		modelsPath: join(agentDir, "models.json"),
 	});
 	modelRuntime.registerNativeProvider(provider);
+	const reviewer = loadToolReviewConfig().reviewer;
+	if (reviewer && reviewer.provider !== modelConfig.provider) {
+		const reviewerProvider = modelRegistry.getProvider(reviewer.provider);
+		if (reviewerProvider) modelRuntime.registerNativeProvider(reviewerProvider);
+	}
 	const model = modelRuntime.getModel(modelConfig.provider, modelConfig.model) ?? registeredModel;
 
 	const settingsManager = SettingsManager.inMemory({ compaction: { enabled: false } as any });
@@ -357,6 +363,9 @@ async function runPiSubAgent(
 		agentDir: getAgentDir(),
 		settingsManager,
 		noExtensions: config.allowedExtensionTools.length === 0,
+		extensionFactories: config.allowedExtensionTools.length === 0
+			? [{ name: "terminal-tool-review", factory: terminalToolReviewExtension }]
+			: [],
 		noSkills: true,
 		noPromptTemplates: true,
 		noThemes: true,
