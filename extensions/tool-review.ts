@@ -475,7 +475,7 @@ function describeRule(rule: ReviewRule): string {
 }
 
 /** Publishes the latest review outcome to TUI and RPC clients. */
-function setReviewStatus(ctx: ExtensionContext, toolCallId: string, outcome: "rule-approved" | "auto-approved" | "user-approved" | "denied" | "reviewing"): void {
+function setReviewStatus(ctx: ExtensionContext, toolCallId: string, outcome: "rule-approved" | "auto-approved" | "auto-approved rule-created" | "user-approved" | "denied" | "reviewing"): void {
 	const color = outcome === "denied" ? "error" : outcome === "reviewing" ? "warning" : "success";
 	ctx.ui.setStatus(`tool-review:${toolCallId}`, ctx.ui.theme.fg(color, outcome));
 }
@@ -510,7 +510,7 @@ export const terminalToolReviewExtension: ExtensionFactory = (pi) => {
 		if (decision.decision === "approve") {
 			const learned = await persistLearnedRules(decision.rules.filter((rule) => proposalIsGlobal(rule, ctx.cwd) && proposalMatchesCall(rule, commands)));
 			for (const rule of learned) ctx.ui.notify(`Learned terminal allow rule: ${describeRule(rule)}`, "info");
-			setReviewStatus(ctx, event.toolCallId, "auto-approved");
+			setReviewStatus(ctx, event.toolCallId, learned.length ? "auto-approved rule-created" : "auto-approved");
 			return;
 		}
 		if (!ctx.hasUI) {
