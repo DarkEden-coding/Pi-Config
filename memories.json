@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextId": 13,
+  "nextId": 15,
   "memories": [
     {
       "id": 1,
@@ -73,6 +73,18 @@
       "text": "The @heyhuynhgiabuu/pi-diff `apply_patch` tool supports at most one operation per file path per call; it rejects duplicate source/destination paths. For multiple replacements in one file, use the `edit` tool with its `edits` array instead.",
       "createdAt": "2026-07-30T02:30:46.572Z",
       "updatedAt": "2026-07-30T02:30:46.572Z"
+    },
+    {
+      "id": 13,
+      "text": "For Python projects, prefer uv for dependency management and command execution: configure dependencies in pyproject.toml, maintain uv.lock, use `uv sync`, and run project commands with `uv run` rather than pip or direct Python, unless the project explicitly uses another established tool.",
+      "createdAt": "2026-08-08T04:20:59.254Z",
+      "updatedAt": "2026-08-08T04:20:59.254Z"
+    },
+    {
+      "id": 14,
+      "text": "When follow-up questions are needed, ask them in sensible batches of more than one whenever multiple independent or related decisions can be clarified together; do not force batching when only one meaningful question exists.",
+      "createdAt": "2026-08-08T04:20:59.258Z",
+      "updatedAt": "2026-08-08T04:20:59.258Z"
     }
   ]
 }
