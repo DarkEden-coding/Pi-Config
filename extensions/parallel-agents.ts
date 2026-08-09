@@ -15,6 +15,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
+import { loadToolReviewConfig, terminalToolReviewExtension } from "./tool-review.ts";
 
 type ThinkingLevel = "low" | "medium" | "high";
 
@@ -160,6 +161,7 @@ type PiCliRunState = {
 };
 
 const CLAUDE_TOOLS = "Read,Glob,Grep,Edit,Write,Bash";
+const CLAUDE_COMMAND = join(getAgentDir(), "bin", "claude");
 const CLAUDE_MODEL_ALIASES = ["opus", "sonnet", "haiku", "fable"] as const;
 const CLAUDE_AUTH_ENVIRONMENT_OVERRIDES = [
 	"ANTHROPIC_API_KEY",
@@ -349,6 +351,11 @@ async function runPiSubAgent(
 		modelsPath: join(agentDir, "models.json"),
 	});
 	modelRuntime.registerNativeProvider(provider);
+	const reviewer = loadToolReviewConfig().reviewer;
+	if (reviewer && reviewer.provider !== modelConfig.provider) {
+		const reviewerProvider = modelRegistry.getProvider(reviewer.provider);
+		if (reviewerProvider) modelRuntime.registerNativeProvider(reviewerProvider);
+	}
 	const model = modelRuntime.getModel(modelConfig.provider, modelConfig.model) ?? registeredModel;
 
 	const settingsManager = SettingsManager.inMemory({ compaction: { enabled: false } as any });
@@ -357,6 +364,9 @@ async function runPiSubAgent(
 		agentDir: getAgentDir(),
 		settingsManager,
 		noExtensions: config.allowedExtensionTools.length === 0,
+		extensionFactories: config.allowedExtensionTools.length === 0
+			? [{ name: "terminal-tool-review", factory: terminalToolReviewExtension }]
+			: [],
 		noSkills: true,
 		noPromptTemplates: true,
 		noThemes: true,
@@ -445,7 +455,7 @@ function createClaudeSubscriptionEnvironment(): NodeJS.ProcessEnv {
 /** Runs a short Claude CLI command and captures its complete output. */
 function captureClaudeCommand(args: string[], cwd: string, timeoutMs = 15_000): Promise<{ stdout: string; stderr: string; code: number }> {
 	return new Promise((resolve, reject) => {
-		const child = spawn("claude", args, {
+		const child = spawn(CLAUDE_COMMAND, args, {
 			cwd,
 			env: createClaudeSubscriptionEnvironment(),
 			stdio: ["ignore", "pipe", "pipe"],
@@ -725,7 +735,7 @@ async function runClaudeCodeSubAgent(
 		"--allowedTools", CLAUDE_TOOLS,
 		"--permission-mode", "dontAsk",
 	];
-	const child: ChildProcessWithoutNullStreams = spawn("claude", args, {
+	const child: ChildProcessWithoutNullStreams = spawn(CLAUDE_COMMAND, args, {
 		cwd: ctx.cwd,
 		env: createClaudeSubscriptionEnvironment(),
 		stdio: ["pipe", "pipe", "pipe"],
