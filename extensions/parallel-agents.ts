@@ -1,6 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import {
 	createAgentSession,
@@ -161,7 +160,9 @@ type PiCliRunState = {
 };
 
 const CLAUDE_TOOLS = "Read,Glob,Grep,Edit,Write,Bash";
-const CLAUDE_COMMAND = join(getAgentDir(), "bin", "claude");
+const BUNDLED_CLAUDE_COMMAND = join(getAgentDir(), "bin", "claude");
+// Keep the existing managed launcher (used on macOS); otherwise resolve Claude Code from PATH.
+const CLAUDE_COMMAND = existsSync(BUNDLED_CLAUDE_COMMAND) ? BUNDLED_CLAUDE_COMMAND : "claude";
 const CLAUDE_MODEL_ALIASES = ["opus", "sonnet", "haiku", "fable"] as const;
 const CLAUDE_AUTH_ENVIRONMENT_OVERRIDES = [
 	"ANTHROPIC_API_KEY",
@@ -505,20 +506,7 @@ async function verifyClaudeSubscriptionAuth(cwd: string, requestedModels: Claude
 	});
 	if (status.subscriptionType === "pro" && requestsFable) {
 		throw new Error(
-			"Claude Code reports a Pro subscription, which does not include Fable. Configure Opus, Sonnet, or Haiku instead; usage credits remain intentionally disabled.",
-		);
-	}
-
-	const accountCachePath = join(homedir(), ".claude.json");
-	try {
-		const accountCache = JSON.parse(readFileSync(accountCachePath, "utf8")) as Record<string, any>;
-		if (accountCache.oauthAccount?.hasExtraUsageEnabled !== false) {
-			throw new Error("Claude usage credits appear enabled or could not be confirmed as disabled.");
-		}
-	} catch (error) {
-		const reason = error instanceof Error ? error.message : String(error);
-		throw new Error(
-			`Cannot guarantee subscription-only Claude usage: ${reason} Disable usage credits in Claude Settings > Usage, then restart Claude Code before using Claude-backed sub-agents.`,
+			"Claude Code reports a Pro subscription, which does not include Fable. Configure Opus, Sonnet, or Haiku instead.",
 		);
 	}
 }
