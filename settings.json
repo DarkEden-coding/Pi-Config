@@ -2,7 +2,7 @@
   "lastChangelogVersion": "0.84.1",
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.6-terra",
-  "defaultThinkingLevel": "medium",
+  "defaultThinkingLevel": "low",
   "theme": "reference-tool-cards",
   "packages": [
     "npm:pi-cursor-sdk",
