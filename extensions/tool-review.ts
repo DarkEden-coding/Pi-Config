@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { getSupportedThinkingLevels, type ModelThinkingLevel } from "@earendil-works/pi-ai";
+import { getSupportedThinkingLevels, type ModelThinkingLevel, type Usage } from "@earendil-works/pi-ai";
 import {
 	getAgentDir,
 	type ExtensionAPI,
@@ -72,6 +72,30 @@ interface ReviewDecision {
 	summary: string;
 	reason: string;
 	rules: Omit<ReviewRule, "id" | "enabled" | "createdAt">[];
+}
+
+interface ReviewResult {
+	decision: ReviewDecision;
+	usage: Usage;
+}
+
+/** Creates empty nested-model usage for a review attempt batch. */
+function emptyUsage(): Usage {
+	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
+}
+
+/** Adds provider-reported usage into one review batch total. */
+function addUsage(total: Usage, usage: Usage): void {
+	total.input += usage.input;
+	total.output += usage.output;
+	total.cacheRead += usage.cacheRead;
+	total.cacheWrite += usage.cacheWrite;
+	total.totalTokens += usage.totalTokens;
+	total.cost.input += usage.cost.input;
+	total.cost.output += usage.cost.output;
+	total.cost.cacheRead += usage.cost.cacheRead;
+	total.cost.cacheWrite += usage.cost.cacheWrite;
+	total.cost.total += usage.cost.total;
 }
 
 const BASELINE_RULES: ReviewRule[] = [
@@ -342,6 +366,7 @@ async function reviewOnce(
 	config: ToolReviewConfig,
 	toolName: string,
 	input: unknown,
+	onUsage: (usage: Usage) => void,
 ): Promise<ReviewDecision> {
 	const selected = config.reviewer;
 	if (!selected) throw new Error("No reviewer model configured");
@@ -366,17 +391,22 @@ async function reviewOnce(
 		{ systemPrompt: config.prompt ?? REVIEW_SYSTEM_PROMPT, messages: [{ role: "user", content: [{ type: "text", text: prompt }], timestamp: Date.now() }] },
 		{ apiKey: auth.apiKey, headers: auth.headers, env: auth.env, reasoning: selected.thinkingLevel === "off" ? undefined : selected.thinkingLevel, maxTokens: 1200, signal },
 	).result();
+	onUsage(response.usage);
 	const text = response.content.filter((part): part is { type: "text"; text: string } => part.type === "text").map((part) => part.text).join("\n");
 	return parseDecision(text);
 }
 
-/** Retries one failed reviewer attempt. */
-async function reviewCall(ctx: ExtensionContext, config: ToolReviewConfig, toolName: string, input: unknown): Promise<ReviewDecision> {
+/** Retries one failed reviewer attempt while retaining billed usage from every response. */
+async function reviewCall(ctx: ExtensionContext, config: ToolReviewConfig, toolName: string, input: unknown): Promise<ReviewResult> {
+	const usage = emptyUsage();
 	let error: unknown;
 	for (let attempt = 0; attempt < 2; attempt++) {
-		try { return await reviewOnce(ctx, config, toolName, input); } catch (caught) { error = caught; }
+		try {
+			const decision = await reviewOnce(ctx, config, toolName, input, (attemptUsage) => addUsage(usage, attemptUsage));
+			return { decision, usage };
+		} catch (caught) { error = caught; }
 	}
-	throw error;
+	throw Object.assign(error instanceof Error ? error : new Error(String(error)), { usage });
 }
 
 /** Returns the authority-bearing portion of a rule for duplicate checks. */
@@ -496,8 +526,29 @@ function setReviewStatus(ctx: ExtensionContext, toolCallId: string, outcome: "ru
 	ctx.ui.setStatus(`tool-review:${toolCallId}`, ctx.ui.theme.fg(color, outcome));
 }
 
+/** Formats the cumulative reviewer spend shown by Pi and RPC UIs. */
+function formatReviewCost(cost: number): string {
+	return `review cost: $${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(3)}`;
+}
+
 /** Global and inline extension factory for terminal tool review. */
 export const terminalToolReviewExtension: ExtensionFactory = (pi) => {
+	const pendingUsage = new Map<string, Usage>();
+	let reviewCost = 0;
+
+	const publishReviewCost = (ctx: ExtensionContext): void => {
+		ctx.ui.setStatus("tool-review-cost", formatReviewCost(reviewCost));
+	};
+
+	pi.on("session_start", (_event, ctx) => {
+		reviewCost = ctx.sessionManager.getBranch().reduce((total, entry) => {
+			if (entry.type !== "message" || entry.message.role !== "toolResult") return total;
+			const cost = (entry.message.details as { toolReviewCost?: unknown } | undefined)?.toolReviewCost;
+			return total + (typeof cost === "number" ? cost : 0);
+		}, 0);
+		publishReviewCost(ctx);
+	});
+
 	pi.registerCommand("tool-review-model", { description: "Select the terminal-call reviewer model", handler: async (_args, ctx) => configureReviewer(ctx) });
 	pi.registerCommand("tool-review-prompt", { description: "Edit the terminal-call reviewer prompt", handler: async (_args, ctx) => configurePrompt(ctx) });
 	pi.registerCommand("tool-review-tools", { description: "Choose tools whose shell calls are reviewed", handler: async (_args, ctx) => configureTools(pi, ctx) });
@@ -518,10 +569,19 @@ export const terminalToolReviewExtension: ExtensionFactory = (pi) => {
 		setReviewStatus(ctx, event.toolCallId, "reviewing");
 
 		let decision: ReviewDecision;
+		let usage = emptyUsage();
 		try {
-			decision = await reviewCall(ctx, config, event.toolName, event.input);
+			const review = await reviewCall(ctx, config, event.toolName, event.input);
+			decision = review.decision;
+			usage = review.usage;
 		} catch (error) {
+			usage = (error as { usage?: Usage }).usage ?? usage;
 			decision = { decision: "escalate", summary: "Run the requested terminal action", reason: `Reviewer unavailable: ${error instanceof Error ? error.message : String(error)}`, rules: [] };
+		}
+		if (usage.cost.total > 0) {
+			pendingUsage.set(event.toolCallId, usage);
+			reviewCost += usage.cost.total;
+			publishReviewCost(ctx);
 		}
 		if (decision.decision === "approve") {
 			const learned = await persistLearnedRules(decision.rules.filter((rule) => proposalIsGlobal(rule, ctx.cwd) && proposalMatchesCall(rule, commands)));
@@ -540,6 +600,16 @@ export const terminalToolReviewExtension: ExtensionFactory = (pi) => {
 		}
 		setReviewStatus(ctx, event.toolCallId, "denied");
 		return { block: true, reason: `Denied by user: ${decision.reason || decision.summary}` };
+	});
+
+	pi.on("tool_result", (event) => {
+		const usage = pendingUsage.get(event.toolCallId);
+		if (!usage) return;
+		pendingUsage.delete(event.toolCallId);
+		return {
+			usage,
+			details: { ...(event.details as Record<string, unknown> | undefined), toolReviewCost: usage.cost.total },
+		};
 	});
 };
 
