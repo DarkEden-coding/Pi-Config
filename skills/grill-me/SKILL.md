@@ -1,53 +1,44 @@
 ---
 name: grill-me
-description: Repeatedly interrogates a request until there is a detailed shared understanding. Use when the user wants the agent to "grill" them, clarify requirements, investigate code between questions, and avoid guessing architectural or high-impact decisions.
+description: Stress-tests a request, plan, decision, or idea through rounds of questions until there is a detailed shared understanding. Use for "grill" requests, requirement clarification, or decisions that should not be guessed.
 ---
 
 # Grill Me
 
 Use this skill to build a rigorous shared understanding before doing any implementation or final planning.
 
-## Core Goal
+## Writing
 
-Repeatedly ask the user focused questions until both the agent and user have a detailed shared understanding of:
+Before drafting restatements, questions, or the final summary, load and apply the `unslop` skill. Use it as the source of truth for user-facing prose instead of duplicating its writing rules here.
 
-- The user's objective and success criteria
-- Relevant existing code, behavior, constraints, and conventions
-- Edge cases, non-goals, tradeoffs, and risks
-- Architectural or product decisions that should not be guessed
+## Goal
 
-This skill is **discovery-only by default**. Do not implement code changes or commit to a final design unless the user gives additional instructions after the discovery phase.
+Build a shared understanding before implementation or final planning. Cover the objective, success criteria, relevant existing behavior, constraints, edge cases, non-goals, tradeoffs, risks, and decisions that should not be guessed.
 
-## Required Workflow
+This skill is discovery-only by default.
 
-1. Restate the initial task briefly.
-2. Explore the repository before asking questions whenever code context may answer obvious questions.
-   - Inspect relevant files, docs, tests, configuration, and existing patterns.
-   - Use fast search/listing tools first where available.
-3. Ask only questions that cannot reasonably be answered from the code or existing context.
-4. Between rounds of questions, explore the code again to resolve newly discovered details.
-5. Continue the loop until there is a detailed shared understanding or the user asks to stop.
-6. End with a shared-understanding summary.
+## Design tree
 
-## Questioning Rules
+Map the request as a tree of decisions. A decision becomes part of the **frontier** when all decisions and facts it depends on are settled.
 
-- Prefer using `user-query` for questions when available in the environment.
-- Ask **small batches only for independent questions**.
-- If one answer may affect the next question, ask those questions separately and wait for the answer.
-- Do not ask the user questions that can be answered by reading the code, docs, tests, or configuration.
-- For harder architectural, product, security, UX, data-model, migration, compatibility, or tradeoff decisions, ask the user instead of guessing.
+Work in rounds:
 
-## Stop Conditions
+1. Build or update the design tree from the request and known context. Do not restate the request unless a correction or clarification would help.
+2. Resolve environmental facts needed by frontier questions. Inspect the repository, docs, tests, configuration, or tools directly. Use a sub-agent only when the investigation is substantial and independent.
+3. Ask the entire frontier in one round with `ask_user_questions`. Do not include questions that depend on another answer still open in that round.
+4. Use the answers to settle decisions, reshape the tree, and compute the next frontier.
+5. Repeat until the frontier is empty or the user asks to stop.
 
-Stop grilling when:
+Explore only when a fact affects a current or likely question. Do not force repository exploration or repeat it between rounds without a reason.
 
-- The user's goal, constraints, success criteria, and likely approach are extreamly well-defined and clear.
-- The user says to stop or provides post-discovery instructions
+## Questions
 
-## Final Output Format
+- Ask the user for decisions. Find facts yourself whenever the environment can answer them.
+- Number every question and include a clear recommended answer with the reason for it.
+- Give selectable options when they make the decision easier, while allowing a custom answer.
+- Ask all independent frontier questions together, but exclude irrelevant or speculative branches.
+- Ask rather than guess about consequential product, architecture, security, UX, data-model, migration, compatibility, and tradeoff decisions.
 
-When discovery is complete, provide:
+## Completion
 
-1. **Shared understanding**: A very detailed summary of the agreed goal, context and general shared understanding.
-
-Do not implement during this skill unless explicitly instructed after the shared-understanding phase.
+When the frontier is empty, provide a detailed shared-understanding summary and ask the user to confirm it. Do not implement or commit to a final design until the user confirms the summary and gives post-discovery instructions.

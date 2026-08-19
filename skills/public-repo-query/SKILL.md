@@ -8,6 +8,10 @@ compatibility: "Requires Git and access to the Windows D: drive. Repository chec
 
 Use this workflow only when the user's question requires inspecting the supplied repository. Do not clone or pull merely because a GitHub URL appears in unrelated text.
 
+## Writing
+
+Before drafting the answer, load and apply the `unslop` skill. Use it as the source of truth for user-facing prose instead of duplicating its writing rules here. Preserve exact code, commands, paths, and quotations.
+
 ## Repository location
 
 Store all checkouts under:
