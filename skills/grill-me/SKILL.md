@@ -34,8 +34,8 @@ Explore only when a fact affects a current or likely question. Do not force repo
 ## Questions
 
 - Ask the user for decisions. Find facts yourself whenever the environment can answer them.
-- Number every question and include a clear recommended answer with the reason for it.
-- Give selectable options when they make the decision easier, while allowing a custom answer.
+- Number every question. Keep the question text to the question itself. Do not put the recommendation or its rationale in the question.
+- Give selectable options when they make the decision easier, while allowing a custom answer. When recommending an answer, put it first in the options and include the recommendation and brief rationale in that option.
 - Ask all independent frontier questions together, but exclude irrelevant or speculative branches.
 - Ask rather than guess about consequential product, architecture, security, UX, data-model, migration, compatibility, and tradeoff decisions.
 
