@@ -1,0 +1,1992 @@
+{
+  "reviewer": {
+    "provider": "openai-codex",
+    "model": "gpt-5.6-luna",
+    "thinkingLevel": "low"
+  },
+  "gatedTools": [
+    "bash",
+    "background_terminal"
+  ],
+  "rules": [
+    {
+      "id": "baseline:pwd:",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Read the current directory",
+      "executable": "pwd",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:ls:",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "List files",
+      "executable": "ls",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:dir:",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "List files on Windows",
+      "executable": "dir",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:cat:",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Read files",
+      "executable": "cat",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:head:",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Read the start of files",
+      "executable": "head",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:tail:",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Read the end of files",
+      "executable": "tail",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [
+        "^-f$",
+        "^--follow"
+      ]
+    },
+    {
+      "id": "baseline:grep:",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Search text",
+      "executable": "grep",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:rg:",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Search text",
+      "executable": "rg",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:find:",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Find files",
+      "executable": "find",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [
+        "^-delete$",
+        "^-exec(dir)?$",
+        "^-ok(dir)?$",
+        "^-fprint"
+      ]
+    },
+    {
+      "id": "baseline:git:status",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Inspect repository status",
+      "executable": "git",
+      "argsPrefix": [
+        "status"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:git:diff",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Inspect repository changes",
+      "executable": "git",
+      "argsPrefix": [
+        "diff"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [
+        "^--ext-diff$"
+      ]
+    },
+    {
+      "id": "baseline:git:log",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Inspect repository history",
+      "executable": "git",
+      "argsPrefix": [
+        "log"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:git:show",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Inspect a repository object",
+      "executable": "git",
+      "argsPrefix": [
+        "show"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [
+        "^--ext-diff$"
+      ]
+    },
+    {
+      "id": "baseline:git:branch:--show-current",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Inspect the current branch",
+      "executable": "git",
+      "argsPrefix": [
+        "branch",
+        "--show-current"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:Get-ChildItem:",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "List files in PowerShell",
+      "executable": "Get-ChildItem",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:Get-Content:",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Read files in PowerShell",
+      "executable": "Get-Content",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:Select-String:",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Search text in PowerShell",
+      "executable": "Select-String",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:type:",
+      "kind": "structured",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Read files in cmd",
+      "executable": "type",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": []
+    },
+    {
+      "id": "baseline:feature:pipe",
+      "kind": "feature",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Pipe between independently allowed commands",
+      "value": "pipe"
+    },
+    {
+      "id": "baseline:feature:and",
+      "kind": "feature",
+      "enabled": true,
+      "createdAt": "baseline",
+      "rationale": "Chain independently allowed commands on success",
+      "value": "and"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "remote"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect configured repository remotes",
+      "id": "c2dd75ef-fa5c-4fa9-8ba0-a03a68b924ab",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:08:30.315Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "printf",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Print diagnostic separators",
+      "id": "293fc93c-89c5-40ce-8cc2-507f230ff42b",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:08:47.883Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "true",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Allow harmless fallback completion",
+      "id": "dab2b97f-399d-4bc0-85bf-375a7744e538",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:08:47.883Z"
+    },
+    {
+      "kind": "feature",
+      "value": "or",
+      "rationale": "Use harmless fallback after inspection failure",
+      "id": "59acf01d-3d62-4c6f-ae38-118209b566ab",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:08:47.883Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "python",
+      "argsPrefix": [
+        "-m",
+        "json.tool"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Validate JSON files",
+      "id": "5f51e797-6a9b-402f-9e5e-34078adfa077",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:09:05.553Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "add"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Stage repository changes",
+      "id": "3b2089f2-54eb-4929-9207-f4298c17fc01",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:09:05.554Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "commit"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Create a repository commit",
+      "id": "32fcd91e-9039-4415-988a-66d6e594c58a",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:09:05.554Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "push"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Push repository commits",
+      "id": "56986071-696d-41b9-a299-73025b1726d3",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:09:05.554Z"
+    },
+    {
+      "kind": "feature",
+      "value": "redirect",
+      "rationale": "Redirect validation output to a sink",
+      "id": "881bdcfd-92df-46e8-a0fb-e7a2a6bfd0ce",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:09:05.554Z"
+    },
+    {
+      "kind": "exact",
+      "value": "node -e \"const p=require('./package.json'); console.log(JSON.stringify(p.scripts,null,2))\"",
+      "rationale": "Read-only inspection of package scripts",
+      "id": "93d5a4ed-eec0-4d8b-8371-e3a8567085ee",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:13:16.744Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npm",
+      "argsPrefix": [
+        "run",
+        "typecheck"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run the project's typechecking script",
+      "id": "7efbc5a7-b277-40d2-9972-6363577a69d6",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:13:23.177Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npm",
+      "argsPrefix": [
+        "run",
+        "test:unit"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run targeted project unit tests",
+      "id": "93421cc6-8089-4b44-925f-66b063806f68",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:13:26.502Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npm",
+      "argsPrefix": [
+        "run",
+        "lint"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run the project's linting script",
+      "id": "2f0a1308-08b8-45dc-8303-515899a9302e",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:13:28.838Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "fetch"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Fetch remote repository updates without modifying working files",
+      "id": "f89c9c7c-8114-4acd-991f-0b58b6b47de0",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:13:31.478Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npx",
+      "argsPrefix": [
+        "eslint"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run ESLint checks on project files",
+      "id": "92ef0fb8-f9e8-4ce9-9744-66cc4a4c64df",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:14:14.700Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "merge"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Merge repository branches",
+      "id": "efa580a9-e738-44dc-95e9-8952e59716b3",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:14:27.631Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npm",
+      "argsPrefix": [
+        "install"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Install project dependencies",
+      "id": "be3e544f-6abe-4aba-8112-5edcd3ebf14e",
+      "enabled": true,
+      "createdAt": "2026-08-09T22:15:04.146Z"
+    },
+    {
+      "kind": "feature",
+      "value": "sequence",
+      "rationale": "Sequence harmless diagnostic commands",
+      "id": "cd7e70c1-20b4-4707-aa34-bb5441a612b9",
+      "enabled": true,
+      "createdAt": "2026-08-10T14:42:42.559Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "where.exe",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Locate Windows executables",
+      "id": "66ea6486-4b42-4235-bbdb-0452980c1f56",
+      "enabled": true,
+      "createdAt": "2026-08-10T14:43:12.252Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "rustc",
+      "argsPrefix": [
+        "--version"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "rationale": "Check the installed Rust compiler version",
+      "id": "357a285d-cd22-4673-8b27-dada02fe60e4",
+      "enabled": true,
+      "createdAt": "2026-08-10T14:43:16.164Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "cargo",
+      "argsPrefix": [
+        "test"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run targeted Rust tests",
+      "id": "860689e8-2865-4496-9f45-cc54ab83f348",
+      "enabled": true,
+      "createdAt": "2026-08-10T14:43:16.165Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "cargo",
+      "argsPrefix": [
+        "fmt"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run Rust formatting checks",
+      "id": "c26059bf-03ec-4626-b4d5-40d9da85aa9b",
+      "enabled": true,
+      "createdAt": "2026-08-10T14:45:55.229Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "--no-pager",
+        "diff"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [
+        "^--ext-diff$"
+      ],
+      "rationale": "Inspect repository changes without invoking external diff tools",
+      "id": "de96c476-ee73-4259-80a0-6fc168d6e820",
+      "enabled": true,
+      "createdAt": "2026-08-10T14:46:06.687Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "echo",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Print diagnostic labels",
+      "id": "69ab2910-9904-4882-8587-d609b469df54",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:33:12.085Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "env",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect environment variables",
+      "id": "844afc2f-29bb-4e19-b4d7-910609aa76d2",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:33:12.085Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "tasklist.exe",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect running Windows processes",
+      "id": "a536a2d5-6e78-4d77-acde-4094802537d8",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:33:26.142Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "findstr",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Filter diagnostic process output",
+      "id": "e2ad8d8a-4e17-4f11-91c1-4197bc1d6672",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:33:26.142Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "netstat",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect active network listeners",
+      "id": "579f4235-6929-41dc-ae19-8ccce5774570",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:34:15.693Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "sed",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect selected lines from diagnostic output",
+      "id": "2d0659c5-497a-4449-bddb-eb384622d124",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:34:35.138Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^[A-Za-z_][A-Za-z0-9_]*=.*$",
+      "rationale": "Allow harmless shell variable assignments for diagnostics",
+      "id": "20adcd44-0c65-47f6-806f-7f4f115bdcd9",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:34:35.138Z"
+    },
+    {
+      "kind": "exact",
+      "value": "powershell.exe -NoProfile -Command \"Get-CimInstance Win32_Processor | Select-Object Name,NumberOfCores,NumberOfLogicalProcessors | Format-List\"",
+      "rationale": "Inspect CPU information",
+      "id": "2d26b16d-31b9-45c2-9b86-63dc2fa1ca79",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:34:43.164Z"
+    },
+    {
+      "kind": "exact",
+      "value": "powershell.exe -NoProfile -Command \"Get-CimInstance Win32_ComputerSystem | Select-Object TotalPhysicalMemory | Format-List\"",
+      "rationale": "Inspect installed memory",
+      "id": "5109d696-3506-497c-990e-0f426405781d",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:34:43.164Z"
+    },
+    {
+      "kind": "exact",
+      "value": "powershell.exe -NoProfile -Command \"Get-CimInstance Win32_Process -Filter \\\"ProcessId = 21016\\\" | Select-Object ProcessId,Name,CommandLine | Format-List\"",
+      "rationale": "Inspect a process command line",
+      "id": "a43b4308-9dad-42b6-af5e-217eb9a3a640",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:34:43.164Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "curl.exe",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [
+        "^-X$",
+        "^(DELETE|POST|PUT|PATCH)$"
+      ],
+      "rationale": "Query local HTTP diagnostic endpoints without destructive methods",
+      "id": "347f778c-f20e-45d5-a930-464faac029aa",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:34:47.857Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "sort",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Sort diagnostic output",
+      "id": "1bce7b12-f566-4e42-918e-755b3ac82f32",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:36:07.163Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uniq",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Summarize diagnostic output",
+      "id": "d85333da-35ec-405a-b2b3-328e85b54b4f",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:36:07.163Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "llama-server.exe",
+      "argsPrefix": [
+        "--help"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect llama runtime capabilities",
+      "id": "2153e6ea-e794-42be-b575-d19e3481da96",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:36:07.163Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "nvidia-smi",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect NVIDIA GPU status",
+      "id": "7d9c42f0-dd56-4901-ab84-4ae2457d4382",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:36:39.743Z"
+    },
+    {
+      "kind": "exact",
+      "value": "powershell.exe -NoProfile -Command \"$input | ConvertFrom-Json | Select-Object -ExpandProperty assets | Select-Object -ExpandProperty name | Select-String 'win-(cuda|vulkan).*x64'\"",
+      "rationale": "Parse release metadata to identify compatible Windows assets",
+      "id": "b7d34f47-3970-4de3-87d5-e0e5bbb61551",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:36:39.743Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "sleep",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Pause briefly during diagnostics",
+      "id": "e69c6bbf-9722-409b-8bf3-f2bc5827e5c4",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:40:58.053Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "mkdir",
+      "argsPrefix": [
+        "-p"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Create directories",
+      "id": "e3c7ecdf-37bf-479f-924e-ab38f0e35788",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:42:33.366Z"
+    },
+    {
+      "kind": "exact",
+      "value": "powershell.exe -NoProfile -Command 'Get-CimInstance Win32_Process -Filter \"Name = ''llama-server.exe''\" | Select-Object ProcessId,ParentProcessId,CommandLine | Format-List'",
+      "rationale": "Inspect llama-server process details",
+      "id": "3e79220f-7fba-4c16-bb11-b09fcba9ba17",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:44:08.532Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^powershell\\.exe -NoProfile -Command ['\"]Expand-Archive\\b.*['\"]$",
+      "rationale": "Extract a downloaded archive with PowerShell",
+      "id": "e28ad8f4-b776-4977-8d9f-d913f0f74312",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:44:36.243Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "python",
+      "argsPrefix": [
+        "-"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run read-only Python diagnostics",
+      "id": "3de94539-4768-408d-aed5-3585298f54f5",
+      "enabled": true,
+      "createdAt": "2026-08-10T16:57:31.257Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "branch"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect local and remote branch references",
+      "id": "20b02b0c-f690-43eb-82e7-a9f0ea62afec",
+      "enabled": true,
+      "createdAt": "2026-08-10T17:46:08.948Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "worktree",
+        "list"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect repository worktrees",
+      "id": "312ef439-9f6b-4b42-8c19-bee606e115f6",
+      "enabled": true,
+      "createdAt": "2026-08-10T17:46:08.948Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "merge-base"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect common ancestry between repository refs",
+      "id": "42e276ec-ac2b-43c7-b42e-fbe2c5981a7f",
+      "enabled": true,
+      "createdAt": "2026-08-10T17:46:23.805Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "ls-files"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "List tracked or untracked repository files",
+      "id": "b94daf9a-85d8-4468-b722-56a0393bedb9",
+      "enabled": true,
+      "createdAt": "2026-08-10T17:46:23.805Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--no-sync",
+        "pytest"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run project tests without syncing dependencies",
+      "id": "5d7e3c00-2194-479e-a610-32c4833e58e4",
+      "enabled": true,
+      "createdAt": "2026-08-10T17:46:58.435Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "rev-list"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect commit ancestry or counts without modifying the repository",
+      "id": "129b1a30-2daf-4470-ac49-0c276047615b",
+      "enabled": true,
+      "createdAt": "2026-08-10T17:47:32.963Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "check-ignore"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect Git ignore rules",
+      "id": "a3c98fe9-d595-4201-a30f-f5ec0578ed62",
+      "enabled": true,
+      "createdAt": "2026-08-10T17:51:09.268Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "ls-tree"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect repository tree contents without modifying files",
+      "id": "4867f6cd-ae24-44a4-8dee-7851bfd0de75",
+      "enabled": true,
+      "createdAt": "2026-08-10T17:51:15.454Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--no-sync",
+        "ruff",
+        "check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run Ruff lint checks without syncing dependencies",
+      "id": "8e66c622-f180-443f-b95b-04c4bb3fc6de",
+      "enabled": true,
+      "createdAt": "2026-08-10T17:51:28.516Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--no-sync",
+        "ruff",
+        "format",
+        "--check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Validate Ruff formatting without modifying files",
+      "id": "f8a51122-00ab-4dbe-aa3f-29b18666a83e",
+      "enabled": true,
+      "createdAt": "2026-08-10T17:51:28.516Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--no-sync",
+        "ruff",
+        "format"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Format project files with Ruff",
+      "id": "4f0981b9-c55c-4b91-b76e-0be094cba368",
+      "enabled": true,
+      "createdAt": "2026-08-10T17:51:41.334Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--no-sync",
+        "python",
+        "-"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run project Python scripts without syncing dependencies",
+      "id": "e5afa2b9-bb9d-43e5-8fbc-477db0b0f3b6",
+      "enabled": true,
+      "createdAt": "2026-08-10T17:54:51.878Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "wc",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Count lines in files",
+      "id": "8fcf7dce-7e2e-4124-bbcd-3f3b96201a77",
+      "enabled": true,
+      "createdAt": "2026-08-10T17:59:41.243Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--locked",
+        "ruff",
+        "format",
+        "--check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Check project formatting without modifying files",
+      "id": "3f016f7a-4f73-41d0-8c8b-72ddc4bbcf62",
+      "enabled": true,
+      "createdAt": "2026-08-10T18:00:22.989Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--locked",
+        "ruff",
+        "check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run Ruff lint checks",
+      "id": "c7f78376-5fb8-4a45-809c-e501d1a4b0c3",
+      "enabled": true,
+      "createdAt": "2026-08-10T18:00:22.989Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--locked",
+        "pytest"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run project tests",
+      "id": "08d08758-7a04-4b02-bfd4-1b26c1e55be0",
+      "enabled": true,
+      "createdAt": "2026-08-10T18:00:22.989Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--locked",
+        "python",
+        "-"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run an inline project validation script",
+      "id": "0376abc2-220b-4ba6-97c4-4ec048c0d3a9",
+      "enabled": true,
+      "createdAt": "2026-08-10T18:00:22.989Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "rev-parse"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect Git commit or reference hashes",
+      "id": "b2b0e126-fe22-4551-8dd0-4c35d4aae2ac",
+      "enabled": true,
+      "createdAt": "2026-08-10T18:01:05.136Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "getent",
+      "argsPrefix": [
+        "hosts"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Resolve hostnames for network diagnostics",
+      "id": "20032c63-594b-45e4-a606-dfffae44f681",
+      "enabled": true,
+      "createdAt": "2026-08-10T18:49:59.842Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "ping",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Test network reachability",
+      "id": "7649c6a9-f0a4-473c-826e-a8d1b76d75b7",
+      "enabled": true,
+      "createdAt": "2026-08-10T18:49:59.842Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "ip",
+      "argsPrefix": [
+        "route"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect network routing configuration",
+      "id": "77bb9be8-39ef-40d1-812f-d97e529e6bb2",
+      "enabled": true,
+      "createdAt": "2026-08-10T18:50:02.897Z"
+    },
+    {
+      "kind": "exact",
+      "value": "powershell.exe -NoProfile -Command \"Write-Host '--- DNS ---'; Resolve-DnsName powerserver -ErrorAction SilentlyContinue | Format-Table -AutoSize; Write-Host '--- Ping IP ---'; Test-Connection 10.0.0.159 -Count 2 -Quiet; Write-Host '--- ARP ---'; Get-NetNeighbor -IPAddress 10.0.0.159 -ErrorAction SilentlyContinue | Format-Table -AutoSize; Write-Host '--- SSH TCP ---'; Test-NetConnection 10.0.0.159 -Port 22 -InformationLevel Detailed | Select-Object ComputerName,RemoteAddress,RemotePort,TcpTestSucceeded,InterfaceAlias,SourceAddress | Format-List; Write-Host '--- Wi-Fi config ---'; Get-NetIPConfiguration | Where-Object {$_.NetAdapter.Status -eq 'Up'} | Format-List InterfaceAlias,IPv4Address,DNSServer\"",
+      "rationale": "Run the specified read-only DNS, reachability, ARP, SSH-port, and interface diagnostics",
+      "id": "4e3440af-aceb-4e05-9051-36ca4cad7b8a",
+      "enabled": true,
+      "createdAt": "2026-08-10T18:50:17.142Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "ssh",
+      "argsPrefix": [
+        "-G"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect SSH client configuration",
+      "id": "9e9177b0-21a8-438b-88fa-b8a2d68c1e79",
+      "enabled": true,
+      "createdAt": "2026-08-10T18:51:00.413Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "ssh-keygen",
+      "argsPrefix": [
+        "-F"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect known SSH host records",
+      "id": "400d42b0-6c0c-49b7-a228-b41237810a44",
+      "enabled": true,
+      "createdAt": "2026-08-10T18:51:00.413Z"
+    },
+    {
+      "kind": "exact",
+      "value": "ssh -o BatchMode=yes dark@10.0.0.159 'sudo -n cat /run/systemd/network/10-netplan-enp60s0.network 2>&1; echo ---; sudo -n cat /etc/netplan/01-netcfg.yaml 2>&1'",
+      "rationale": "Read remote network configuration without modifying it",
+      "id": "a718aaa4-ae94-4a99-a3ae-8dd26e92b85d",
+      "enabled": true,
+      "createdAt": "2026-08-10T18:54:16.529Z"
+    },
+    {
+      "kind": "exact",
+      "value": "ssh -o BatchMode=yes -o ConnectTimeout=10 dark@10.0.0.158 'set -eu; echo \"python alternatives:\"; find /usr/bin -maxdepth 1 -type f -name \"python3*\" -printf \"%f\\n\" | sort; echo \"moonraker paths:\"; find /home/dark /home/pi -maxdepth 3 -iname \"*moonraker*\" -o -iname \"*mainsail*\" 2>/dev/null | sed -n \"1,80p\"; echo \"sudo noninteractive:\"; sudo -n true && echo yes || echo no; echo \"disk:\"; df -h /home; echo \"arch:\"; uname -m'",
+      "rationale": "Run this specific read-only remote environment inspection",
+      "id": "cb16f684-d665-49b4-be79-885061a31cb1",
+      "enabled": true,
+      "createdAt": "2026-08-10T19:19:08.775Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "prettier",
+      "argsPrefix": [
+        "--check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Check formatting without modifying files",
+      "id": "056d8329-0aa9-4bf2-86e9-0c593a6605c2",
+      "enabled": true,
+      "createdAt": "2026-08-10T19:22:20.921Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "tsc",
+      "argsPrefix": [
+        "--noEmit"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run TypeScript validation without emitting files",
+      "id": "04647d21-bb36-45ed-af84-708a3a063ab2",
+      "enabled": true,
+      "createdAt": "2026-08-10T19:22:20.921Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "prettier",
+      "argsPrefix": [
+        "--write"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Format project source files",
+      "id": "d490890c-da8a-43c8-be9d-95ff67b4d5a5",
+      "enabled": true,
+      "createdAt": "2026-08-10T19:22:34.407Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "pi",
+      "argsPrefix": [
+        "--help"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect pi CLI usage safely",
+      "id": "234e2ee9-4fc2-44ae-b98c-73626eb055c3",
+      "enabled": true,
+      "createdAt": "2026-08-10T19:23:00.815Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "pi",
+      "argsPrefix": [
+        "--no-extensions",
+        "-e"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run a local pi extension diagnostic command",
+      "id": "7cb167b6-e8a4-41cc-9b82-6571120b59f2",
+      "enabled": true,
+      "createdAt": "2026-08-10T19:23:19.936Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "command",
+      "argsPrefix": [
+        "-v"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Resolve executable locations safely",
+      "id": "9499ebe9-4196-4964-b049-0d2957d80571",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:09:57.106Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "pi",
+      "argsPrefix": [
+        "list"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect installed pi packages",
+      "id": "d24b2129-87f9-4c47-b330-b57cc2a66180",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:10:11.289Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "file",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect executable file type",
+      "id": "ebeb9413-51c3-4f44-b383-5715ab6acbe7",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:10:11.290Z"
+    },
+    {
+      "kind": "exact",
+      "value": "node -e \"const c=require(process.env.USERPROFILE+'/.claude.json'); console.log(JSON.stringify({hasExtraUsageEnabled:c.oauthAccount?.hasExtraUsageEnabled}))\"",
+      "rationale": "Read and report one Claude configuration flag",
+      "id": "d23ef279-7566-4234-b839-e898c19b2f0d",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:10:45.629Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "claude",
+      "argsPrefix": [
+        "--safe-mode",
+        "auth",
+        "status"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect Claude authentication status safely",
+      "id": "b58ea29b-6a00-4604-8f32-cb42eda47a03",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:14:19.816Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "xargs",
+      "argsPrefix": [
+        "-0",
+        "grep"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run bounded text searches over null-delimited file paths",
+      "id": "b4acd334-fcbc-4884-8ca7-a33b1d74662f",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:17:08.305Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npm",
+      "argsPrefix": [
+        "run",
+        "format:check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run the project's formatting check without modifying files",
+      "id": "5040819e-0847-430d-b062-b967d9d4c2a6",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:18:06.550Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "eslint",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run ESLint checks on project files",
+      "id": "591fc9ff-19dc-4eb0-80f2-f20fe0a0ea43",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:18:52.651Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "prettier",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run Prettier for non-destructive formatting inspection",
+      "id": "e87f4fc8-e302-4774-b296-85866c7efd31",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:19:06.116Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "diff",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Compare files without modifying them",
+      "id": "568208ba-76d8-4b15-9c9d-6927efe44659",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:19:06.116Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npm",
+      "argsPrefix": [
+        "run",
+        "build:renderer"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Build the project renderer",
+      "id": "3fb67a65-1b9c-4b2a-b613-5d944d604822",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:19:15.896Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npx",
+      "argsPrefix": [
+        "impeccable",
+        "update"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run the requested Impeccable update",
+      "id": "ab1beca6-a776-40b5-8943-98d746900ffc",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:22:54.954Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "cp",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Copy project assets without severe destructive effects",
+      "id": "df936e17-4f89-4d56-bdea-3370df81b7ff",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:26:47.831Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "lock"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Resolve and update the project lockfile",
+      "id": "0265554c-4166-4e59-b4cf-4c3398b9da17",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:37:47.107Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "ruff",
+        "format"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Format project files with Ruff",
+      "id": "9ec26887-7c62-4e81-8a6e-415c6547b5f0",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:37:47.107Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "ruff",
+        "check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run Ruff lint checks",
+      "id": "b3c7da8c-31a2-4d9c-87c3-a7bcfa16213b",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:37:47.107Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "pytest"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run project tests",
+      "id": "aa03c8fa-72a2-4bfc-9749-9f05caeb169b",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:37:47.108Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "node",
+      "argsPrefix": [
+        "--check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run non-modifying JavaScript syntax checks",
+      "id": "7b24fc4c-189d-4025-a7cb-30fbcff298c6",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:39:59.306Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "build"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Build the project package",
+      "id": "7afb2cf5-b84c-4490-a995-3d6751f917d6",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:39:59.306Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "python",
+        "-"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run inline project Python diagnostics without destructive operations",
+      "id": "21f24077-9e38-45ab-9425-6476f2d8ae13",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:40:41.995Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "python",
+        "-c"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run local inline Python diagnostics",
+      "id": "1909f45c-a830-4326-a96e-e9bfc1f3554a",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:42:08.327Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "msedge.exe",
+      "argsPrefix": [
+        "--headless"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Capture local screenshots in headless browser mode",
+      "id": "ae62919c-e874-4812-b10e-6a7783d8bcd2",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:44:45.562Z"
+    },
+    {
+      "kind": "exact",
+      "value": "set -e",
+      "rationale": "Enable fail-fast shell behavior",
+      "id": "109fab63-84c1-4280-a885-77c798ff26ea",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:55:50.291Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "switch",
+        "-c"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Create and switch to a new Git branch",
+      "id": "86603e5f-577c-4e96-b50d-ba434f711ed5",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:55:50.291Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "ssh",
+      "argsPrefix": [
+        "-o",
+        "BatchMode=yes"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run non-interactive SSH diagnostics",
+      "id": "11e809d0-96d5-4a9c-85c3-10387ee53f38",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:56:14.194Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "archive"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Create an in-memory repository archive for inspection",
+      "id": "91f76779-4ebf-4b25-8128-903ccd35f81e",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:57:12.179Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--extra",
+        "onnx",
+        "python",
+        "-m"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run project Python modules with the ONNX dependency extra",
+      "id": "d4c57435-0bd7-4680-b3bc-d1804862427a",
+      "enabled": true,
+      "createdAt": "2026-08-10T20:59:53.013Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "scp",
+      "argsPrefix": [
+        "-o",
+        "BatchMode=yes"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Transfer project artifacts non-interactively over SSH",
+      "id": "817380ff-83bc-402a-9844-555c941ac29d",
+      "enabled": true,
+      "createdAt": "2026-08-10T21:01:13.777Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "curl",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [
+        "^-X$",
+        "^(DELETE|POST|PUT|PATCH)$"
+      ],
+      "rationale": "Query HTTP endpoints without destructive methods",
+      "id": "1ffeac74-49c9-4d20-ae9c-d77c17ceac5a",
+      "enabled": true,
+      "createdAt": "2026-08-10T21:03:57.673Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "node",
+      "argsPrefix": [
+        "C:/Users/darke/.agents/skills/impeccable/scripts/context.mjs"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run the read-only project context inspection script",
+      "id": "1ead2ab4-134e-48af-b54c-5e7a63e8d1c2",
+      "enabled": true,
+      "createdAt": "2026-08-11T21:26:40.159Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "cargo",
+      "argsPrefix": [
+        "check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run Rust compile checks without destructive operations",
+      "id": "35550e01-a96c-453a-9720-9fcb638ca896",
+      "enabled": true,
+      "createdAt": "2026-08-11T21:29:04.358Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npx",
+      "argsPrefix": [
+        "prettier",
+        "--check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Check formatting without modifying project files",
+      "id": "8246f41a-00e5-4df4-b608-a6921426fce1",
+      "enabled": true,
+      "createdAt": "2026-08-11T21:29:08.978Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "node",
+      "argsPrefix": [
+        "C:/Users/darke/.agents/skills/impeccable/scripts/detect.mjs"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run the local read-only design detection script",
+      "id": "5e81961c-da32-4afb-b0cd-593926beb48e",
+      "enabled": true,
+      "createdAt": "2026-08-11T21:29:08.978Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npx",
+      "argsPrefix": [
+        "prettier",
+        "--write"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Format project source files",
+      "id": "5a8f1f90-f33a-4131-bdf8-a8e439024071",
+      "enabled": true,
+      "createdAt": "2026-08-11T21:29:51.318Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "rustfmt",
+      "argsPrefix": [
+        "--check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Check Rust formatting without modifying files",
+      "id": "75e6aa94-aaf9-468d-8b40-572ca75bc8fe",
+      "enabled": true,
+      "createdAt": "2026-08-11T21:30:05.179Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "python",
+      "argsPrefix": [
+        "-m",
+        "pytest"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run project tests without destructive operations",
+      "id": "fef3c741-a7ff-4077-8d8c-8891deb91975",
+      "enabled": true,
+      "createdAt": "2026-08-11T22:05:53.128Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "python",
+      "argsPrefix": [
+        "-m",
+        "ruff",
+        "check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run Ruff lint checks without modifying files",
+      "id": "27f54ec9-cc87-43fc-9d1c-53309e1b5afe",
+      "enabled": true,
+      "createdAt": "2026-08-11T22:05:57.424Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "python",
+      "argsPrefix": [
+        "-m",
+        "ruff",
+        "format",
+        "--check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Validate Ruff formatting without modifying files",
+      "id": "5ea482e7-77e1-4245-afea-c2e8b636fbc7",
+      "enabled": true,
+      "createdAt": "2026-08-11T22:05:57.424Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--with",
+        "pytest",
+        "--with",
+        "pytest-asyncio",
+        "--with",
+        "ruff",
+        "pytest"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run project tests with specified temporary dependencies",
+      "id": "2c92478a-75e7-4eef-9052-05557f23c2c0",
+      "enabled": true,
+      "createdAt": "2026-08-11T22:06:14.453Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--with",
+        "ruff",
+        "ruff",
+        "check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run Ruff lint checks",
+      "id": "8ae3f30e-cb31-4135-bd4a-3f9c611aa379",
+      "enabled": true,
+      "createdAt": "2026-08-11T22:06:14.453Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--with",
+        "ruff",
+        "ruff",
+        "format",
+        "--check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Check Ruff formatting without modifying files",
+      "id": "39d0c6fc-75cf-446c-aeb5-9793ea010231",
+      "enabled": true,
+      "createdAt": "2026-08-11T22:06:14.453Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "scp",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Transfer project files over SSH",
+      "id": "0f8dbf06-0d87-4cc9-a070-18e43d6d1ea5",
+      "enabled": true,
+      "createdAt": "2026-08-11T22:08:46.392Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "ssh",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run specified remote deployment commands",
+      "id": "5484a9f3-1191-495c-8b8c-d38ca4879f01",
+      "enabled": true,
+      "createdAt": "2026-08-11T22:08:46.392Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "sha256sum",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Compare file checksums without modifying data",
+      "id": "87a043f3-d288-4aa2-aaa9-f68ef97e3458",
+      "enabled": true,
+      "createdAt": "2026-08-11T22:10:30.651Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "Select-Object",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Select and limit diagnostic output",
+      "id": "a54c2aa3-71a7-4d12-b719-167495a34d52",
+      "enabled": true,
+      "createdAt": "2026-08-11T23:00:39.619Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "blame"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect source-line history without modifying the repository",
+      "id": "dc9265c3-e15b-46b8-b2bf-6b2d9cacfd8b",
+      "enabled": true,
+      "createdAt": "2026-08-11T23:10:39.579Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "MSBuild.exe",
+      "argsPrefix": [
+        "-restore"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Restore dependencies and build the project",
+      "id": "d78d3f9f-1ce3-4330-98da-4440b8171e2f",
+      "enabled": true,
+      "createdAt": "2026-08-11T23:16:30.462Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--with",
+        "pytest",
+        "--with",
+        "pytest-asyncio",
+        "pytest"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run project tests with specified temporary dependencies",
+      "id": "1de0041a-fd68-422c-ab8d-bf7201679e59",
+      "enabled": true,
+      "createdAt": "2026-08-11T23:30:13.947Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "reset"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [
+        "^--hard$",
+        "^--keep$"
+      ],
+      "rationale": "Unstage changes without destructive filesystem reset",
+      "id": "b07de276-8cff-4d2d-a334-446fb237c47b",
+      "enabled": true,
+      "createdAt": "2026-08-15T01:27:39.420Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "black",
+      "argsPrefix": [
+        "--check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run Black formatting checks without modifying files",
+      "id": "a100806b-1b99-4d41-923a-2172278b6ba9",
+      "enabled": true,
+      "createdAt": "2026-08-15T01:28:42.999Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "ruff",
+      "argsPrefix": [
+        "check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run Ruff lint checks",
+      "id": "e122b329-67e0-4ffb-a762-d54f85d2f9ce",
+      "enabled": true,
+      "createdAt": "2026-08-15T01:28:42.999Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "pytest",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run project tests",
+      "id": "6562d5a7-059b-4328-bafe-e7344a39aae9",
+      "enabled": true,
+      "createdAt": "2026-08-15T01:28:42.999Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npm",
+      "argsPrefix": [
+        "run",
+        "build"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Build the project without destructive system operations",
+      "id": "43ff009f-d641-4e07-aa0f-26b44e12c2f9",
+      "enabled": true,
+      "createdAt": "2026-08-15T01:40:50.033Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "tr",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Transform diagnostic text safely",
+      "id": "9ac1f4e5-14ca-48f8-a626-023445cbed3f",
+      "enabled": true,
+      "createdAt": "2026-08-15T01:51:16.478Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "python",
+      "argsPrefix": [
+        "-c"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run read-only inline Python diagnostics",
+      "id": "502fbb2b-cbde-48be-b7d5-37071669de0e",
+      "enabled": true,
+      "createdAt": "2026-08-15T01:51:20.117Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "node",
+      "argsPrefix": [
+        "--version"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "rationale": "Check the installed Node.js version",
+      "id": "a87acb60-b0f4-41f0-af2f-2f3b4a6ca4e1",
+      "enabled": true,
+      "createdAt": "2026-08-15T01:52:49.173Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npm",
+      "argsPrefix": [
+        "--version"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "rationale": "Check the installed npm version",
+      "id": "57474560-1fb5-44d8-9033-c78cf17ade23",
+      "enabled": true,
+      "createdAt": "2026-08-15T01:52:49.173Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^for f in [^;]+; do node --check \"\\$f\" >/dev/null || exit 1; done$",
+      "rationale": "Allow bounded, non-modifying JavaScript syntax-check loops",
+      "id": "ede74978-dcb4-44e7-a981-80377b2a2159",
+      "enabled": true,
+      "createdAt": "2026-08-15T01:54:24.241Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npm",
+      "argsPrefix": [
+        "exec",
+        "prettier",
+        "--",
+        "--check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Check formatting via npm without modifying project files",
+      "id": "208e64b1-ef63-48f4-9f55-298548efdb42",
+      "enabled": true,
+      "createdAt": "2026-08-15T02:04:41.802Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "gh",
+      "argsPrefix": [
+        "pr",
+        "view"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect pull request metadata",
+      "id": "4df2276c-82a5-4ba3-8af3-ff66031e0add",
+      "enabled": true,
+      "createdAt": "2026-08-17T22:29:27.302Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "merge-tree"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect potential Git merge conflicts without modifying repository files",
+      "id": "e2ef386a-3629-4e75-ace4-9dff7bd79015",
+      "enabled": true,
+      "createdAt": "2026-08-17T22:29:32.524Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "gh",
+      "argsPrefix": [
+        "pr",
+        "checks"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect pull request check status",
+      "id": "ac59facf-4c64-482f-933a-e0a0454c336f",
+      "enabled": true,
+      "createdAt": "2026-08-19T01:18:05.223Z"
+    }
+  ]
+}
