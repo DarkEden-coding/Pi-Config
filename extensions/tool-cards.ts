@@ -1,5 +1,5 @@
 import { existsSync, realpathSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { ExtensionAPI, ExtensionContext, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { getAgentDir, keyHint } from "@earendil-works/pi-coding-agent";
@@ -137,33 +137,59 @@ function createRuntimeId(): string {
 
 /** Locates Pi's live ToolExecutionComponent module without loading a second SDK copy. */
 function findToolExecutionModulePath(): string | undefined {
-	const relativePath = join("modes", "interactive", "components", "tool-execution.js");
+	const modularRelativePath = join("modes", "interactive", "components", "tool-execution.js");
 	const candidates: string[] = [];
 	const cliEntry = process.argv[1];
 	if (cliEntry) {
 		// Package-manager launchers are commonly symlinks on macOS/Linux (for
 		// example, /opt/homebrew/bin/pi -> .../dist/cli.js). Resolve the launcher
 		// before looking beside Pi's real CLI entrypoint.
+		let cliDir: string;
 		try {
-			candidates.push(resolve(dirname(realpathSync(cliEntry)), relativePath));
+			cliDir = dirname(realpathSync(cliEntry));
 		} catch {
-			candidates.push(resolve(dirname(cliEntry), relativePath));
+			cliDir = dirname(cliEntry);
 		}
+		// Pi 0.84+ ships the Node CLI at dist/bundle/cli.js. The live class is
+		// re-exported from dist/bundle/index.js in the same ESM graph as the CLI.
+		if (basename(cliDir) === "bundle") {
+			candidates.push(resolve(cliDir, "index.js"));
+		}
+		candidates.push(resolve(cliDir, modularRelativePath));
+		candidates.push(resolve(cliDir, "..", modularRelativePath));
 	}
 	if (process.env.APPDATA) {
-		candidates.push(
-			resolve(
-				process.env.APPDATA,
-				"npm",
-				"node_modules",
-				"@earendil-works",
-				"pi-coding-agent",
-				"dist",
-				relativePath,
-			),
+		const distDir = resolve(
+			process.env.APPDATA,
+			"npm",
+			"node_modules",
+			"@earendil-works",
+			"pi-coding-agent",
+			"dist",
 		);
+		candidates.push(resolve(distDir, "bundle", "index.js"));
+		candidates.push(resolve(distDir, modularRelativePath));
 	}
 	return candidates.find((candidate) => existsSync(candidate));
+}
+
+/** Loads the live ToolExecutionComponent module, including bundled/binary runtimes. */
+async function loadToolExecutionModule(): Promise<ToolExecutionModule> {
+	const modulePath = findToolExecutionModulePath();
+	const usingBundledCli = modulePath !== undefined && basename(dirname(modulePath)) === "bundle";
+	// Bundled Node/Bun inject the live class through jiti virtualModules.
+	if (usingBundledCli || !modulePath) {
+		try {
+			const module = (await import("@earendil-works/pi-coding-agent")) as ToolExecutionModule;
+			if (module.ToolExecutionComponent) return module;
+		} catch {
+			// Fall through to the filesystem module when one exists.
+		}
+	}
+	if (modulePath) {
+		return (await import(pathToFileURL(modulePath).href)) as ToolExecutionModule;
+	}
+	throw new Error("Could not locate Pi's ToolExecutionComponent module.");
 }
 
 /** Loads pi-diff's rendering helpers when that optional package is installed. */
@@ -590,9 +616,7 @@ function renderCard(
 
 /** Patches Pi's transcript component while delegating all tool-specific rendering. */
 async function installToolExecutionPatch(): Promise<void> {
-	const modulePath = findToolExecutionModulePath();
-	if (!modulePath) throw new Error("Could not locate Pi's ToolExecutionComponent module.");
-	const module = (await import(pathToFileURL(modulePath).href)) as ToolExecutionModule;
+	const module = await loadToolExecutionModule();
 	const prototype = module.ToolExecutionComponent?.prototype;
 	if (!prototype) throw new Error("Pi's ToolExecutionComponent export was not found.");
 	if (prototype[PATCH_KEY]) return;

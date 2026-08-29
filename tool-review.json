@@ -1987,6 +1987,511 @@
       "id": "ac59facf-4c64-482f-933a-e0a0454c336f",
       "enabled": true,
       "createdAt": "2026-08-19T01:18:05.223Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "tar",
+      "argsPrefix": [
+        "-xz",
+        "-C"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Extract an archive into a temporary directory for inspection",
+      "id": "722ef454-06bf-4e41-b748-8c4e38c98c8f",
+      "enabled": true,
+      "createdAt": "2026-08-25T21:00:30.014Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "g++",
+      "argsPrefix": [
+        "-std=c++17",
+        "-fsyntax-only"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run non-modifying C++ syntax checks",
+      "id": "be69550a-5122-4183-a31c-38e21c09e98a",
+      "enabled": true,
+      "createdAt": "2026-08-25T21:14:28.848Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^[A-Za-z_][A-Za-z0-9_]*=\\$\\(find [^;&|]+ -type d -name [^;&|]+ -printf [^;&|]+\\)$",
+      "allowAdditionalArgs": false,
+      "rationale": "Allow safe find-based include-path variable assignments",
+      "id": "e2f6c6b4-e9ec-4758-bb31-9735a5f25f1f",
+      "enabled": true,
+      "createdAt": "2026-08-25T21:14:28.848Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "g++",
+      "argsPrefix": [
+        "-std=c++17"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Compile local C++ test programs",
+      "id": "b099ecb7-737a-4ac6-a315-a2a75aa33b08",
+      "enabled": true,
+      "createdAt": "2026-08-25T21:45:52.924Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^[A-Za-z_][A-Za-z0-9_]*=\"[^\"]*\\$[A-Za-z_][A-Za-z0-9_]*\"$",
+      "rationale": "Allow harmless shell include-path variable assignments",
+      "id": "b0e8a496-9407-4ad4-a6bb-0ab4e42f4b5c",
+      "enabled": true,
+      "createdAt": "2026-08-25T21:47:43.371Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "region_order_smoke",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run the locally compiled smoke benchmark",
+      "id": "55030804-4a08-4283-bf1d-e16e5ca492a6",
+      "enabled": true,
+      "createdAt": "2026-08-25T21:47:43.371Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "cut",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Extract fields from diagnostic text",
+      "id": "77fb8707-56d6-42f6-9c96-42521f9581f4",
+      "enabled": true,
+      "createdAt": "2026-08-26T00:33:45.208Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^awk 'NR>=([0-9]+) && NR<=([0-9]+) \\{print\\}' \"\\$[A-Za-z_][A-Za-z0-9_]*\"$",
+      "rationale": "Read a bounded line range from a diagnostic log",
+      "id": "b5ec3b9f-318c-42ca-91fb-6f53e2f6de10",
+      "enabled": true,
+      "createdAt": "2026-08-26T00:34:06.681Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "grep"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Search repository history and files without modification",
+      "id": "3d2d06be-3369-417c-b9b2-00f2b0ba2e4f",
+      "enabled": true,
+      "createdAt": "2026-08-26T00:37:23.399Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "kill",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Stop the test process",
+      "id": "b2d10784-82cf-48e6-8969-03526d5b5b72",
+      "enabled": true,
+      "createdAt": "2026-08-26T15:39:25.997Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "wait",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Wait for the stopped test process",
+      "id": "b1b29147-9a13-486e-af78-13c0f919c12f",
+      "enabled": true,
+      "createdAt": "2026-08-26T15:39:25.997Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "node",
+      "argsPrefix": [
+        "--input-type=module"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run local browser-based UI inspection and screenshot diagnostics",
+      "id": "9217aa03-beef-4de8-9b5c-9da149e78207",
+      "enabled": true,
+      "createdAt": "2026-08-26T15:47:00.357Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npm",
+      "argsPrefix": [
+        "run",
+        "check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run project checks",
+      "id": "cab42a7c-822e-40a7-bd95-b377c6ea9cc4",
+      "enabled": true,
+      "createdAt": "2026-08-26T16:02:02.006Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "exit",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Exit a bounded polling loop",
+      "id": "9920fe20-ab6d-4c42-9955-a4448d456f66",
+      "enabled": true,
+      "createdAt": "2026-08-26T22:18:19.748Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "awk",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Extract checksum fields",
+      "id": "ef045e7b-88b8-423e-b42d-987f4ba192c5",
+      "enabled": true,
+      "createdAt": "2026-08-27T18:54:26.315Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "cd",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Change to the project directory",
+      "id": "7d8e901e-7515-4bee-85f9-2b22d765869c",
+      "enabled": true,
+      "createdAt": "2026-08-27T18:54:26.315Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "make",
+      "argsPrefix": [
+        "install"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Build and install the project",
+      "id": "aa1b9d87-14ef-4484-8340-9c618908ac3c",
+      "enabled": true,
+      "createdAt": "2026-08-27T18:54:26.315Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "kpackagetool6",
+      "argsPrefix": [
+        "-t",
+        "Plasma/Applet",
+        "--list"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "rationale": "List installed Plasma applets",
+      "id": "d953d84a-76ff-4c9c-acab-07d687bcf834",
+      "enabled": true,
+      "createdAt": "2026-08-27T18:54:26.315Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "unzip",
+      "argsPrefix": [
+        "-l"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect archive contents",
+      "id": "60fac21e-55db-4a0e-9ef0-b129325402c1",
+      "enabled": true,
+      "createdAt": "2026-08-27T18:54:26.315Z"
+    },
+    {
+      "kind": "exact",
+      "value": "set -euo pipefail",
+      "rationale": "Enable fail-fast shell behavior",
+      "id": "0bcc60ed-77d5-40bd-8312-9a20bc7b17b7",
+      "enabled": true,
+      "createdAt": "2026-08-27T18:54:26.316Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "trap",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Register temporary-directory cleanup",
+      "id": "b6f4f2aa-c00c-4a48-a7e8-bbbee213f953",
+      "enabled": true,
+      "createdAt": "2026-08-27T18:54:26.316Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "gh",
+      "argsPrefix": [
+        "run",
+        "view"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect GitHub Actions workflow run details and logs",
+      "id": "6a69ce19-af79-4012-b658-d5a0a71fbd6e",
+      "enabled": true,
+      "createdAt": "2026-08-27T21:07:34.641Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "rmdir",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Remove the empty temporary directory",
+      "id": "26be7ab8-dfe8-4ba8-8a87-24d6da7539c9",
+      "enabled": true,
+      "createdAt": "2026-08-28T20:53:19.713Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "python3",
+      "argsPrefix": [
+        "-"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run inline image inspection diagnostics",
+      "id": "b5a594cf-93ed-4645-b9e4-9f2cf9af143a",
+      "enabled": true,
+      "createdAt": "2026-08-28T20:53:39.046Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "export",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Set environment variables for diagnostics",
+      "id": "1718261f-6b05-44f5-a8f3-0e8fc9136502",
+      "enabled": true,
+      "createdAt": "2026-08-28T21:14:39.823Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "readlink",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect symbolic links without modifying files",
+      "id": "9e6942a5-0897-4d41-b947-ba356686e4cd",
+      "enabled": true,
+      "createdAt": "2026-08-28T21:15:00.320Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "nmcli",
+      "argsPrefix": [
+        "device",
+        "wifi",
+        "rescan"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Rescan available Wi‑Fi networks",
+      "id": "b59957a9-342c-496e-a465-152cb1a1f0c4",
+      "enabled": true,
+      "createdAt": "2026-08-28T22:25:35.328Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "test",
+      "argsPrefix": [
+        "-n"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Check whether a network identifier was found",
+      "id": "e437345c-3f78-40d0-a073-e0dcd9d2bf07",
+      "enabled": true,
+      "createdAt": "2026-08-28T22:25:35.329Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "nmcli",
+      "argsPrefix": [
+        "connection",
+        "modify"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Update the selected connection's hotspot identifier",
+      "id": "7d709248-2999-4531-a816-82858ef4e687",
+      "enabled": true,
+      "createdAt": "2026-08-28T22:25:35.329Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "nmcli",
+      "argsPrefix": [
+        "connection",
+        "up"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Activate the selected network connection",
+      "id": "2785b3c2-8f0e-489b-9e5a-045ce5a75b69",
+      "enabled": true,
+      "createdAt": "2026-08-28T22:25:35.329Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "lsblk",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect block-device information",
+      "id": "217c877f-7bb2-4b29-bc69-c074ff46daf8",
+      "enabled": true,
+      "createdAt": "2026-08-28T22:57:09.222Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "ip",
+      "argsPrefix": [
+        "-br",
+        "link"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect network interfaces",
+      "id": "f41a6991-8b95-4fe4-a5d3-9e9a930486e0",
+      "enabled": true,
+      "createdAt": "2026-08-28T23:07:01.834Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "ip",
+      "argsPrefix": [
+        "-br",
+        "address"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect network addresses",
+      "id": "739481e7-00bc-448c-a3de-f203bfeed831",
+      "enabled": true,
+      "createdAt": "2026-08-28T23:07:01.834Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "lsusb",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect connected USB devices",
+      "id": "df6e41b8-f299-41a0-8e1a-c4b5227fd05c",
+      "enabled": true,
+      "createdAt": "2026-08-28T23:07:01.835Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "journalctl",
+      "argsPrefix": [
+        "-k"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Read kernel logs for USB networking diagnostics",
+      "id": "55e5f365-7b46-47ce-9541-9aab46788a16",
+      "enabled": true,
+      "createdAt": "2026-08-28T23:07:01.835Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "chmod",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Set permissions on a temporary diagnostic script",
+      "id": "34cae7d3-81dc-4bda-b965-78df4e92483d",
+      "enabled": true,
+      "createdAt": "2026-08-28T23:10:44.042Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "xz",
+      "argsPrefix": [
+        "-dc"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Decompress image data for read-only verification",
+      "id": "87e7488b-af4a-449e-8780-48fd796125c3",
+      "enabled": true,
+      "createdAt": "2026-08-29T02:55:09.483Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "sync",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Flush pending filesystem buffers safely",
+      "id": "0fd9607f-a285-401c-b90f-632c2f5bbbde",
+      "enabled": true,
+      "createdAt": "2026-08-29T02:55:09.483Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "mkdir",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Create a temporary directory",
+      "id": "90ee5495-64fb-49ae-921d-f32974b8df66",
+      "enabled": true,
+      "createdAt": "2026-08-29T15:10:55.569Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "gh",
+      "argsPrefix": [
+        "run",
+        "download"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Download a GitHub Actions artifact without executing it",
+      "id": "1a461c3c-9877-4759-991a-8c402a78cc63",
+      "enabled": true,
+      "createdAt": "2026-08-29T15:10:55.569Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "xz",
+      "argsPrefix": [
+        "-t"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Validate compressed image integrity",
+      "id": "abf7a954-a575-42b5-beed-d5e0c6af29a5",
+      "enabled": true,
+      "createdAt": "2026-08-29T15:10:55.569Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^[A-Za-z_][A-Za-z0-9_]*=\\$\\?$",
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "rationale": "Capture a diagnostic command exit status",
+      "id": "74934270-c05e-4078-bccb-2656088acf59",
+      "enabled": true,
+      "createdAt": "2026-08-29T15:34:54.141Z"
     }
   ]
 }

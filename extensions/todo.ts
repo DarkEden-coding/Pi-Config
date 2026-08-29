@@ -40,9 +40,24 @@ const CompletionParams = Type.Object({
 	id: Type.String({ description: "Task id being completed." }),
 });
 
+const TodoTaskParams = Type.Object({
+	id: Type.String({ description: "Stable short task id." }),
+	title: Type.String({ description: "Task title." }),
+	description: Type.String({ description: "Task description." }),
+	acceptanceCriteria: Type.Optional(Type.Array(Type.String())),
+	notes: Type.Optional(Type.Array(Type.String())),
+	dependencies: Type.Optional(Type.Array(Type.String(), { description: "Task ids that must be completed before this task is unblocked." })),
+	status: Type.Optional(StringEnum(["pending", "in_progress", "completed"] as const)),
+});
+
+const TodoWebInput = Type.Object({
+	title: Type.String({ description: "Todo web title." }),
+	tasks: Type.Array(TodoTaskParams),
+});
+
 const TodoWebParams = Type.Object({
 	action: StringEnum(["set", "get", "complete", "clear"] as const),
-	web: Type.Optional(Type.Any({ description: "Full todo web JSON for action=set." })),
+	web: Type.Optional(TodoWebInput),
 	taskId: Type.Optional(Type.String({ description: "Task id for action=complete (single-task shorthand)." })),
 	completions: Type.Optional(Type.Array(CompletionParams, { description: "One or more completed task ids for action=complete. Use this for parallel task completions." })),
 });

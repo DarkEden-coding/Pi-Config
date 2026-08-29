@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.84.2",
+  "lastChangelogVersion": "0.84.3",
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.6-terra",
   "defaultThinkingLevel": "medium",
@@ -17,7 +17,8 @@
     "cursor/grok-4.6",
     "anthropic/claude-opus-5",
     "cursor/fable-5@300k",
-    "openai-codex/gpt-5.6-luna"
+    "openai-codex/gpt-5.6-luna",
+    "openrouter/z-ai/glm-4.5-air"
   ],
   "extensions": [
     "-extensions/image-analysis-handoff.ts",
