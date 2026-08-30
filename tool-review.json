@@ -2492,6 +2492,33 @@
       "id": "74934270-c05e-4078-bccb-2656088acf59",
       "enabled": true,
       "createdAt": "2026-08-29T15:34:54.141Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "nmap",
+      "argsPrefix": [
+        "-sn"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Perform non-invasive host discovery",
+      "id": "f63b0824-a4e5-4736-ba68-8b4133d3be34",
+      "enabled": true,
+      "createdAt": "2026-08-29T22:18:01.493Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "curl",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [
+        "^-X$",
+        "^(DELETE|POST|PATCH)$"
+      ],
+      "rationale": "Allow reversible GitHub installation suspension requests without permitting broader destructive methods",
+      "id": "e4a803c5-b123-485b-ba07-3dda8a4b5bfd",
+      "enabled": true,
+      "createdAt": "2026-08-29T22:38:31.994Z"
     }
   ]
 }
