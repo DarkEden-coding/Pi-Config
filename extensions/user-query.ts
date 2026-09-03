@@ -385,6 +385,9 @@ export default function (pi: ExtensionAPI) {
             });
 
       if (result.cancelled) {
+        // Cancel means "stop working", not "recoverable error": abort the agent loop so it
+        // waits for the user's next message instead of reacting to the tool error.
+        ctx.abort();
         return {
           isError: true,
           content: [
