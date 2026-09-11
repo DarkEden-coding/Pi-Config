@@ -359,7 +359,8 @@ async function runPiSubAgent(
 	}
 	const model = modelRuntime.getModel(modelConfig.provider, modelConfig.model) ?? registeredModel;
 
-	const settingsManager = SettingsManager.inMemory({ compaction: { enabled: false } as any });
+	// Load the same global and trusted project package, extension, and compaction configuration as the main agent.
+	const settingsManager = SettingsManager.create(ctx.cwd, agentDir, { projectTrusted: ctx.isProjectTrusted() });
 	const loader = new DefaultResourceLoader({
 		cwd: ctx.cwd,
 		agentDir: getAgentDir(),
