@@ -14,7 +14,7 @@ Actions:
 Examples:
 
 ```json
-{"action":"inspect","pr":139,"sections":["threads"],"botLogins":["macroscopeapp"],"unresolvedOnly":true,"includeBodies":true}
+{"action":"inspect","pr":139,"sections":["threads"],"botLogins":["coderabbitai"],"unresolvedOnly":true,"includeBodies":true}
 ```
 
 ```json
