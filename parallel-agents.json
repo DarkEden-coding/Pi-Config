@@ -21,7 +21,6 @@
       "model": "gpt-6-sol",
       "description": "Flagship choice for difficult multi-file engineering, deep reasoning, long-horizon implementation, testing, and demanding review work.",
       "enabled": true,
-      "backend": "pi",
       "provider": "openai-codex"
     },
     {
@@ -29,7 +28,6 @@
       "model": "gpt-5.6-terra",
       "description": "Balanced choice for everyday development, scoped implementation, first-pass code review, documentation, and general production work.",
       "enabled": true,
-      "backend": "pi",
       "provider": "openai-codex"
     },
     {
@@ -37,7 +35,6 @@
       "model": "gpt-6-luna",
       "description": "Fast choice for well-defined lightweight work such as summaries, code explanations, log analysis, review prechecks, and small routine changes.",
       "enabled": true,
-      "backend": "pi",
       "provider": "openai-codex"
     },
     {

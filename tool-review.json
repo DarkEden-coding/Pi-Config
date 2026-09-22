@@ -2521,6 +2521,46 @@
       "createdAt": "2026-08-29T22:38:31.994Z"
     },
     {
+      "kind": "exact",
+      "value": "set -eu",
+      "rationale": "Enable fail-fast shell behavior",
+      "id": "3b4dd4f6-9af2-4f28-b978-53b7fc6b5e49",
+      "enabled": true,
+      "createdAt": "2026-08-30T01:57:13.961Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^[A-Za-z_][A-Za-z0-9_]*='[^']*'$",
+      "rationale": "Allow harmless quoted shell variable assignments",
+      "id": "8f6b8e74-5173-4584-9333-b610129a4d11",
+      "enabled": true,
+      "createdAt": "2026-08-30T01:57:47.506Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "[",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Perform harmless shell condition checks",
+      "id": "3dc882b0-1dd1-47f3-aa01-461109ce3b6a",
+      "enabled": true,
+      "createdAt": "2026-08-30T01:57:47.507Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "tar",
+      "argsPrefix": [
+        "-xf"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Extract a local WPILib archive",
+      "id": "a05cec3d-4c67-4425-a3d5-7a1440fc895b",
+      "enabled": true,
+      "createdAt": "2026-08-30T01:59:16.083Z"
+    },
+    {
       "kind": "structured",
       "executable": "tar",
       "argsPrefix": [
@@ -2689,10 +2729,620 @@
       "argsPrefix": [],
       "allowAdditionalArgs": true,
       "forbiddenArgs": [],
-      "rationale": "Inspect file sizes without modification",
-      "id": "ef6c98e3-3dcb-44e2-9ec0-9e1cd0fa4950",
+      "rationale": "Report archive and directory sizes",
+      "id": "b5c6d323-2fb7-4003-b8c5-5bb4722d9b60",
       "enabled": true,
-      "createdAt": "2026-09-14T01:34:59.993Z"
+      "createdAt": "2026-08-30T01:59:16.083Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^[A-Za-z_][A-Za-z0-9_]*=\"\\$HOME/[^\"]+\"$",
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "rationale": "Set a local archive path variable",
+      "id": "26bd7763-ddfb-450e-88d1-ea8b2a84cd23",
+      "enabled": true,
+      "createdAt": "2026-08-30T01:59:16.084Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "python3",
+      "argsPrefix": [
+        "-m",
+        "py_compile"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run non-modifying Python bytecode syntax checks",
+      "id": "21ab735d-f125-42de-977b-40b99f4ed9cb",
+      "enabled": true,
+      "createdAt": "2026-08-31T00:57:25.602Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "systemctl",
+      "argsPrefix": [
+        "--user",
+        "-M"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Check user systemd service status",
+      "id": "cdd11534-6aae-47b4-94cc-ef2be41f25cf",
+      "enabled": true,
+      "createdAt": "2026-08-31T01:04:04.901Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^sudo -A -u [A-Za-z_][A-Za-z0-9_-]* XDG_RUNTIME_DIR=/run/user/\\$\\(id -u [A-Za-z_][A-Za-z0-9_-]*\\) systemctl --user is-active [A-Za-z0-9_.@-]+$",
+      "rationale": "Check a specified user systemd service through sudo",
+      "id": "08c4ebec-cdbc-4705-8c69-202bb44101c9",
+      "enabled": true,
+      "createdAt": "2026-08-31T01:04:04.901Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "pgrep",
+      "argsPrefix": [
+        "-af"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect matching running processes",
+      "id": "b37c9fe2-ad30-4492-876c-8b829005d7f8",
+      "enabled": true,
+      "createdAt": "2026-08-31T01:04:55.854Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "pgrep",
+      "argsPrefix": [
+        "-f"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect matching OpenRazer processes",
+      "id": "4995e1dc-211d-42ad-bd58-3740f1114b48",
+      "enabled": true,
+      "createdAt": "2026-08-31T01:05:51.869Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^sudo -A -u [A-Za-z_][A-Za-z0-9_-]* XDG_RUNTIME_DIR=/run/user/\\$\\(id -u [A-Za-z_][A-Za-z0-9_-]*\\) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/\\$\\(id -u [A-Za-z_][A-Za-z0-9_-]*\\)/bus sg plugdev -c 'openrazer-daemon'$",
+      "rationale": "Start the specified OpenRazer daemon as its user",
+      "id": "508d631f-6471-4727-af49-560c45ce3dea",
+      "enabled": true,
+      "createdAt": "2026-08-31T01:06:07.744Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "pgrep",
+      "argsPrefix": [
+        "-x"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Check for an exact running process name",
+      "id": "d3aae359-c75c-499d-85e8-8a1def1ee8f0",
+      "enabled": true,
+      "createdAt": "2026-08-31T01:09:39.449Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^sudo -A -u [A-Za-z_][A-Za-z0-9_-]* XDG_RUNTIME_DIR=/run/user/\\$\\(id -u [A-Za-z_][A-Za-z0-9_-]*\\) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/\\$\\(id -u [A-Za-z_][A-Za-z0-9_-]*\\)/bus sg plugdev -c 'nohup python3 -u [^']+ --mode decay >/tmp/[^']+ 2>&1 &'$",
+      "rationale": "Start the specified local application as its unprivileged user",
+      "id": "f8387874-6d22-4b18-a73c-fb9cd8333c64",
+      "enabled": true,
+      "createdAt": "2026-08-31T01:19:54.349Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "pkill",
+      "argsPrefix": [
+        "-f"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Stop the targeted local application before restarting it",
+      "id": "0c380d83-6474-478c-8fd8-ccd354fb06ac",
+      "enabled": true,
+      "createdAt": "2026-08-31T01:26:15.897Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^sudo -A -u [A-Za-z_][A-Za-z0-9_-]* XDG_RUNTIME_DIR=/run/user/\\$\\(id -u [A-Za-z_][A-Za-z0-9_-]*\\) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/\\$\\(id -u [A-Za-z_][A-Za-z0-9_-]*\\)/bus sg plugdev -c 'nohup python3 -u [^']+ --mode decay --quota [0-9]+ --half-life [0-9]+ >/tmp/[^']+ 2>&1 &'$",
+      "rationale": "Start the specified local application with bounded decay configuration as its unprivileged user",
+      "id": "557d3f63-60eb-49a1-a45e-4c5c4f3928a2",
+      "enabled": true,
+      "createdAt": "2026-08-31T01:26:15.897Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^sudo -A -u [A-Za-z_][A-Za-z0-9_-]* XDG_RUNTIME_DIR=/run/user/\\$\\(id -u [A-Za-z_][A-Za-z0-9_-]*\\) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/\\$\\(id -u [A-Za-z_][A-Za-z0-9_-]*\\)/bus setsid sg plugdev -c 'python3 -u [^']+ --mode decay --quota [0-9]+ --half-life [0-9]+ >/tmp/[^']+ 2>&1 < /dev/null'$",
+      "rationale": "Start the specified local application with bounded decay settings as its unprivileged user",
+      "id": "5636c11e-45b9-4a1b-98d1-524fb7197c0d",
+      "enabled": true,
+      "createdAt": "2026-08-31T01:26:38.934Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "ps",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect running processes safely",
+      "id": "94774b48-7940-454d-a06f-4f06cd0b1944",
+      "enabled": true,
+      "createdAt": "2026-08-31T01:38:53.744Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "lsof",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect open files for a process",
+      "id": "9b42b8dd-5200-4c5d-8aaf-72af8efc8033",
+      "enabled": true,
+      "createdAt": "2026-08-31T01:40:06.140Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "disown",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Detach the background local process safely",
+      "id": "197d41ab-5fb6-4e2f-b3e8-ec19a2e54bf5",
+      "enabled": true,
+      "createdAt": "2026-08-31T01:44:35.049Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^sudo -A -u [A-Za-z_][A-Za-z0-9_-]* XDG_RUNTIME_DIR=/run/user/\\$\\(id -u [A-Za-z_][A-Za-z0-9_-]*\\) systemctl --user daemon-reload$",
+      "rationale": "Reload a specified user's systemd manager",
+      "id": "a29894da-ae11-438b-969c-9aaa6238a014",
+      "enabled": true,
+      "createdAt": "2026-08-31T18:26:41.348Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "nohup",
+      "argsPrefix": [
+        "/opt/brave.com/brave/brave"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Restart the local Brave browser in the background",
+      "id": "8d0e8d0c-f7ca-4103-baa5-131f4cdbd047",
+      "enabled": true,
+      "createdAt": "2026-08-31T19:24:51.618Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "pkill",
+      "argsPrefix": [
+        "-TERM",
+        "-x"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Gracefully stop a specifically named local process",
+      "id": "3a839d3a-5a19-4c4a-8022-ea7af3d30b8b",
+      "enabled": true,
+      "createdAt": "2026-08-31T19:25:59.952Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "break",
+      "argsPrefix": [],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "rationale": "Exit a bounded shell polling loop",
+      "id": "cd4773d8-160a-479f-a697-7fa7c3dd2355",
+      "enabled": true,
+      "createdAt": "2026-08-31T19:25:59.952Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "timeout",
+      "argsPrefix": [
+        "20s"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run bounded diagnostic commands",
+      "id": "ba12c251-0d6d-4d18-9fb1-ac9c169c8163",
+      "enabled": true,
+      "createdAt": "2026-09-01T00:17:40.272Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "udevadm",
+      "argsPrefix": [
+        "test-builtin",
+        "keyboard"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run read-only udev keyboard mapping diagnostics",
+      "id": "a662304d-6429-45ec-a09e-79f80159cc87",
+      "enabled": true,
+      "createdAt": "2026-09-01T00:18:03.106Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "xxd",
+      "argsPrefix": [
+        "-p"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Convert diagnostic device data to hexadecimal",
+      "id": "2e1693e6-6f77-4d3b-8d57-e4fed997c711",
+      "enabled": true,
+      "createdAt": "2026-09-01T00:21:35.487Z"
+    },
+    {
+      "kind": "exact",
+      "value": "SP=$!",
+      "rationale": "Capture a background diagnostic process ID",
+      "id": "239c40ef-5f6e-48a5-a72d-00e892df0fb1",
+      "enabled": true,
+      "createdAt": "2026-09-01T00:53:10.368Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "grep",
+      "argsPrefix": [
+        "-c"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Count matching diagnostic log entries",
+      "id": "e7919469-0914-4ac2-bd6c-c678bcc02175",
+      "enabled": true,
+      "createdAt": "2026-09-01T00:53:10.368Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "od",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect binary firmware data without modifying files",
+      "id": "ae4fb62c-a24b-4567-b327-b10f831286b9",
+      "enabled": true,
+      "createdAt": "2026-09-01T20:49:38.040Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^spotify_root=\\$\\(flatpak info --system --show-location [^;&|]+\\)$",
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "rationale": "Capture the Flatpak location for diagnostics",
+      "id": "3827a170-fa85-4ea7-a148-75894ee03638",
+      "enabled": true,
+      "createdAt": "2026-09-04T01:19:04.683Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "spicetify",
+      "argsPrefix": [
+        "config-dir"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect the Spicetify configuration directory",
+      "id": "bf3be193-9b9e-4076-aaf1-91fcfeb8de3f",
+      "enabled": true,
+      "createdAt": "2026-09-04T01:19:04.684Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "flatpak",
+      "argsPrefix": [
+        "info"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect installed Flatpak application metadata",
+      "id": "381ac5e4-9f58-4b82-a928-29dea97654e5",
+      "enabled": true,
+      "createdAt": "2026-09-04T01:19:35.095Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "stat",
+      "argsPrefix": [
+        "-c"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect file metadata and permissions",
+      "id": "ed437465-46ed-4a4c-b44e-3183f1986b22",
+      "enabled": true,
+      "createdAt": "2026-09-04T01:19:35.095Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^name=\\$\\(basename \"\\$\\(flatpak info --system --show-location [^;&|]+\\)\"\\)$",
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "rationale": "Capture a Flatpak deployment name for diagnostics",
+      "id": "3062785c-27a8-4625-9d2e-cf8fbe2ff6b7",
+      "enabled": true,
+      "createdAt": "2026-09-04T01:19:35.095Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "rustfmt",
+      "argsPrefix": [
+        "--edition"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Format Rust source files safely",
+      "id": "dcad9f19-53c5-4cc2-967b-fe9e4ae08a91",
+      "enabled": true,
+      "createdAt": "2026-09-06T18:40:57.726Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^python3 ['\"][^'\"]*/qmp\\.py['\"] (system_reset|key ret|screenshot)$",
+      "rationale": "Allow bounded local VM QMP inspection controls",
+      "id": "18d9376f-1a73-44f6-ab70-9260b029554e",
+      "enabled": true,
+      "createdAt": "2026-09-07T17:57:55.714Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "python3",
+      "argsPrefix": [
+        "generate.py"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run the local harness generator against a supplied source file",
+      "id": "9cadf6f7-2248-475a-b490-568508c0aa2e",
+      "enabled": true,
+      "createdAt": "2026-09-07T18:24:53.955Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "modinfo",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect installed kernel module metadata",
+      "id": "3f44ebfb-7457-49aa-af80-8e570f11f2d8",
+      "enabled": true,
+      "createdAt": "2026-09-07T18:54:01.302Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^git -C \"\\$tmp\" (init -q|config user\\.(email|name) [^;&|]+)$",
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "rationale": "Initialize and configure an isolated temporary Git repository",
+      "id": "9b69367e-802e-4b67-af75-44381791c5ac",
+      "enabled": true,
+      "createdAt": "2026-09-07T21:10:10.994Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^git -C \"\\$tmp\" diff --no-index --no-ext-diff --unified=[0-9]+ -- /dev/null [A-Za-z0-9_./-]+$",
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "rationale": "Inspect a temporary repository file diff",
+      "id": "957480ff-096e-4c56-957c-713281a45616",
+      "enabled": true,
+      "createdAt": "2026-09-07T21:10:10.995Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "gdbus",
+      "argsPrefix": [
+        "call",
+        "--session",
+        "--dest",
+        "org.kde.plasmashell"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Apply reversible Plasma panel visibility settings",
+      "id": "8ad26ba3-295d-49fc-a12c-9bc9d83dcd34",
+      "enabled": true,
+      "createdAt": "2026-09-09T19:33:13.082Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "systemctl",
+      "argsPrefix": [
+        "--user",
+        "daemon-reload"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "rationale": "Reload user systemd configuration",
+      "id": "1c81008e-4392-4207-932b-0effef65b567",
+      "enabled": true,
+      "createdAt": "2026-09-14T20:49:31.390Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "systemctl",
+      "argsPrefix": [
+        "--user",
+        "enable",
+        "--now"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Enable and start a user-level service",
+      "id": "25b50ebd-0681-4eb5-9423-7c26ebdae6e3",
+      "enabled": true,
+      "createdAt": "2026-09-14T20:49:31.390Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "systemctl",
+      "argsPrefix": [
+        "--user",
+        "status"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect user service status",
+      "id": "a8c02abb-de5f-43a8-94ad-b02247904669",
+      "enabled": true,
+      "createdAt": "2026-09-14T20:49:31.390Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "config"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect Git configuration safely",
+      "id": "8c7119b7-f30b-4b1e-ab38-1a37b0cbcac0",
+      "enabled": true,
+      "createdAt": "2026-09-14T23:41:51.441Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "systemctl",
+      "argsPrefix": [
+        "--user",
+        "stop"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Stop specified user services",
+      "id": "c9b83f6d-009f-4020-88e8-b530900a65da",
+      "enabled": true,
+      "createdAt": "2026-09-15T03:21:55.100Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "systemctl",
+      "argsPrefix": [
+        "--user",
+        "start"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Start a specified user service",
+      "id": "fd9e9046-102f-417b-918e-71e189fb850b",
+      "enabled": true,
+      "createdAt": "2026-09-15T03:21:55.100Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "systemctl",
+      "argsPrefix": [
+        "--user",
+        "is-active"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Check user service activity",
+      "id": "681c034a-ccc2-45fd-a17a-f2b1178ef7a6",
+      "enabled": true,
+      "createdAt": "2026-09-15T03:21:55.100Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "python3",
+      "argsPrefix": [
+        "-c"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Parse local diagnostic JSON output",
+      "id": "83f89945-7ec3-4858-bdef-6cf2a68d2d8b",
+      "enabled": true,
+      "createdAt": "2026-09-15T03:21:55.100Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "sqlite3",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Read model profile settings from the local database",
+      "id": "157780f6-cff8-4a83-adbd-c57d372e566e",
+      "enabled": true,
+      "createdAt": "2026-09-15T03:27:49.680Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "timeout",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run bounded diagnostic requests",
+      "id": "abf2d7f6-4fc3-40e5-94d5-b96be6e20cda",
+      "enabled": true,
+      "createdAt": "2026-09-15T03:47:09.731Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "systemctl",
+      "argsPrefix": [
+        "--user",
+        "restart"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Restart specified user services",
+      "id": "bf4e871f-9168-49f8-b116-18b62da2361c",
+      "enabled": true,
+      "createdAt": "2026-09-16T01:21:37.804Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "systemctl",
+      "argsPrefix": [
+        "--user",
+        "reset-failed"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Reset failure state for a specified user service",
+      "id": "86327e05-2dfb-4948-b13f-852b00ad8d14",
+      "enabled": true,
+      "createdAt": "2026-09-16T01:24:13.647Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "systemctl",
+      "argsPrefix": [
+        "--user",
+        "is-failed"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Check whether a user service has failed",
+      "id": "4353abb1-c77a-4197-98ad-06107702306d",
+      "enabled": true,
+      "createdAt": "2026-09-16T01:24:13.648Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "journalctl",
+      "argsPrefix": [
+        "--user",
+        "-u"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect user service logs",
+      "id": "681eba8b-6f2f-4a99-93f3-cbaa656eca9b",
+      "enabled": true,
+      "createdAt": "2026-09-16T01:24:33.491Z"
     },
     {
       "kind": "structured",

@@ -1,4 +1,3 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
@@ -8,6 +7,7 @@ import {
 	ModelRuntime,
 	SessionManager,
 	SettingsManager,
+	type AgentSession,
 	type ExtensionAPI,
 	type ExtensionContext,
 	type ThemeColor,
@@ -15,26 +15,18 @@ import {
 import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
 import { loadToolReviewConfig, terminalToolReviewExtension } from "./tool-review.ts";
+import { AgentActivityLog } from "./lib/parallel-agent-activity.ts";
+import { AgentSteeringController, MAX_STEERING_MESSAGE_CHARS } from "./lib/parallel-agent-steering.ts";
 
 type ThinkingLevel = "low" | "medium" | "high";
 
-interface BaseAgentModel {
+interface AgentModel {
+	provider: string;
 	name: string;
 	model: string;
 	description: string;
 	enabled: boolean;
 }
-
-interface PiAgentModel extends BaseAgentModel {
-	backend: "pi";
-	provider: string;
-}
-
-interface ClaudeCodeAgentModel extends BaseAgentModel {
-	backend: "claude-code";
-}
-
-type AgentModel = PiAgentModel | ClaudeCodeAgentModel;
 
 interface ParallelAgentsConfig {
 	maxParallelAgents: number;
@@ -52,7 +44,7 @@ const DEFAULT_CONFIG: ParallelAgentsConfig = {
 };
 
 const TASK_SCHEMA = Type.Object({
-	name: Type.Optional(Type.String({ description: "Short human-readable task name." })),
+	name: Type.Optional(Type.String({ minLength: 1, maxLength: 120, description: "Unique task name within this run. Defaults to the configured model name; name tasks explicitly when reusing a model." })),
 	model: Type.String({ description: "Configured model name from ~/.pi/agent/parallel-agents.json." }),
 	reasoningLevel: Type.Union([Type.Literal("low"), Type.Literal("medium"), Type.Literal("high")], {
 		description: "Required reasoning level for this sub-agent run.",
@@ -68,23 +60,23 @@ const PARALLEL_AGENTS_SCHEMA = Type.Object({
 		description: "Sub-agent tasks to run concurrently. Assign non-overlapping files for editing tasks.",
 	}),
 	blocking: Type.Optional(Type.Boolean({
-		description: "Whether to wait for all sub-agents before returning. Defaults to true. Set false to continue working and use parallel_agents_control with the returned runId to inspect, wait for, or cancel the run.",
+		description: "Whether to wait for all sub-agents before returning. Defaults to true. Set false to continue working and use parallel_agents_control with the returned runId to inspect, steer, wait for, or cancel the run.",
 	})),
 });
 
 const PARALLEL_AGENTS_CONTROL_SCHEMA = Type.Object({
 	action: Type.String({
-		description: "One of: status (summarize progress), wait (wait for completion), read_actions (read recorded sub-agent actions), read_results (read a chunk of completed sub-agent reports), or cancel (stop active sub-agents).",
+		description: "One of: status, wait, read_actions (compact tool activity), read_action_details (explicit argument/result detail), read_results, steer (queue a correction for named agents), or cancel.",
 	}),
 	runId: Type.String({ description: "Run ID returned from a non-blocking parallel_agents call." }),
 	agents: Type.Optional(Type.Array(Type.String(), {
-		description: "Optional task names to limit action reading or cancellation. Omit to operate on every task in the run. Wait always waits for the complete run.",
+		description: "Task names to select. Required and nonempty for steer; otherwise omit for all. Unknown names are errors. Wait always waits for the complete run.",
 	})),
 	readRegion: Type.Optional(Type.Object({
 		start: Type.Integer({ minimum: 0, description: "First recorded action index to include (inclusive)." }),
 		end: Type.Integer({ minimum: 0, description: "Last recorded action index to include (inclusive)." }),
 	}, {
-		description: "For read_actions: an explicit inclusive range of recorded action indexes. Omit to return only the four newest actions.",
+		description: "For read_actions: inclusive activity change indexes. Responses remain bounded. Omit after and readRegion for the four newest events; tool starts/ends in the page are combined.",
 	})),
 	reportRegion: Type.Optional(Type.Object({
 		start: Type.Integer({ minimum: 0, description: "First report character offset to include (inclusive)." }),
@@ -92,8 +84,15 @@ const PARALLEL_AGENTS_CONTROL_SCHEMA = Type.Object({
 	}, {
 		description: "For read_results: an explicit inclusive character range from each selected sub-agent report. Each call returns at most 4,000 characters per report; make another call for later text.",
 	})),
-	offset: Type.Optional(Type.Integer({ minimum: 0, description: "Deprecated: zero-based offset in the filtered action list. Use readRegion instead." })),
-	limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, description: "Deprecated: maximum actions from offset. Use readRegion instead." })),
+	after: Type.Optional(Type.Integer({ minimum: -1, description: "For read_actions: return changes after this cursor, oldest first. Start with -1; reuse nextCursor with the same agents filter. Tool completion receives a new index." })),
+	limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 20, description: "For read_actions: maximum events scanned, up to 20 and a 4,000-character total response budget." })),
+	offset: Type.Optional(Type.Integer({ minimum: 0, description: "Deprecated: offset in filtered activity events. Prefer after for incremental reads." })),
+	actionIndex: Type.Optional(Type.Integer({ minimum: 0, description: "For read_action_details: activity index from the compact feed. Details retain at most 64,000 characters per event." })),
+	detailRegion: Type.Optional(Type.Object({
+		start: Type.Integer({ minimum: 0 }),
+		end: Type.Integer({ minimum: 0 }),
+	}, { description: "For read_action_details: inclusive character range within retained detail; each response is capped at 4,000 characters." })),
+	message: Type.Optional(Type.String({ minLength: 1, maxLength: MAX_STEERING_MESSAGE_CHARS, description: "For steer: a literal correction. Queued for the next turn boundary, not an interrupt or proof of compliance." })),
 	timeoutSeconds: Type.Optional(Type.Number({
 		description: "For wait on a non-blocking run: maximum time to wait without cancelling the sub-agents. Omit to wait until completion.",
 		exclusiveMinimum: 0,
@@ -118,61 +117,15 @@ type AgentRunStats = {
 	filesEdited: Set<string>;
 };
 
-type AgentAction = {
-	index: number;
-	timestamp: number;
-	agent: string;
-	type: "turn_start" | "tool_start" | "tool_end" | "completed" | "failed" | "cancelled";
-	toolName?: string;
-	details?: string;
-};
-
-interface RunningAgentController {
-	abort(): Promise<void> | void;
-}
-
 type ParallelAgentRun = {
 	id: string;
 	tasks: SubAgentTask[];
 	stats: AgentRunStats[];
-	actions: AgentAction[];
-	controllers: Array<RunningAgentController | undefined>;
-	cancelRequested: Set<number>;
+	activity: AgentActivityLog;
+	controllers: Array<AgentSteeringController | undefined>;
 	results?: Array<{ ok: boolean; name: string; output: string }>;
 	completion: Promise<Array<{ ok: boolean; name: string; output: string }>>;
 };
-
-type ClaudeResultMessage = {
-	type: "result";
-	subtype: string;
-	is_error?: boolean;
-	result?: string;
-	errors?: string[];
-	num_turns?: number;
-	total_cost_usd?: number;
-	modelUsage?: Record<string, unknown>;
-	permission_denials?: unknown[];
-};
-
-type PiCliRunState = {
-	finalText?: string;
-	error?: string;
-};
-
-const CLAUDE_TOOLS = "Read,Glob,Grep,Edit,Write,Bash";
-const BUNDLED_CLAUDE_COMMAND = join(getAgentDir(), "bin", "claude");
-// Keep the existing managed launcher (used on macOS); otherwise resolve Claude Code from PATH.
-const CLAUDE_COMMAND = existsSync(BUNDLED_CLAUDE_COMMAND) ? BUNDLED_CLAUDE_COMMAND : "claude";
-const CLAUDE_MODEL_ALIASES = ["opus", "sonnet", "haiku", "fable"] as const;
-const CLAUDE_AUTH_ENVIRONMENT_OVERRIDES = [
-	"ANTHROPIC_API_KEY",
-	"ANTHROPIC_AUTH_TOKEN",
-	"ANTHROPIC_BASE_URL",
-	"CLAUDE_CODE_USE_ANTHROPIC_AWS",
-	"CLAUDE_CODE_USE_BEDROCK",
-	"CLAUDE_CODE_USE_FOUNDRY",
-	"CLAUDE_CODE_USE_VERTEX",
-] as const;
 
 /** Maps a sub-agent reasoning level to the active theme's matching color. */
 function getReasoningColor(level: ThinkingLevel): ThemeColor {
@@ -186,10 +139,12 @@ function getReasoningColor(level: ThinkingLevel): ThemeColor {
 	}
 }
 
-function ensureConfigDir() {
+/** Creates the user configuration directory before persistence. */
+function ensureConfigDir(): void {
 	mkdirSync(dirname(CONFIG_PATH), { recursive: true });
 }
 
+/** Loads configured native Pi models and their tool allowlist. */
 function loadConfig(): ParallelAgentsConfig {
 	if (!existsSync(CONFIG_PATH)) return { ...DEFAULT_CONFIG };
 	try {
@@ -211,11 +166,13 @@ function loadConfig(): ParallelAgentsConfig {
 	}
 }
 
-function saveConfig(config: ParallelAgentsConfig) {
+/** Persists the model configuration edited through the management command. */
+function saveConfig(config: ParallelAgentsConfig): void {
 	ensureConfigDir();
 	writeFileSync(CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
 }
 
+/** Rejects malformed entries and removed external harness configurations. */
 function isModelLike(value: unknown): boolean {
 	const model = value as Record<string, unknown> | undefined;
 	if (
@@ -225,49 +182,51 @@ function isModelLike(value: unknown): boolean {
 		typeof model.description !== "string" ||
 		(model.enabled !== undefined && typeof model.enabled !== "boolean")
 	) return false;
-	return model.backend === "claude-code" ||
-		((model.backend === undefined || model.backend === "pi") && typeof model.provider === "string");
+	return (model.backend === undefined || model.backend === "pi") &&
+		typeof model.provider === "string" && model.provider !== "cursor";
 }
 
-/** Converts legacy provider/model entries into explicitly pi-backed model entries. */
+/** Loads only the fields needed by native Pi sessions. */
 function normalizeModel(value: unknown): AgentModel {
 	const model = value as Record<string, unknown>;
-	const common = {
+	return {
+		provider: model.provider as string,
 		name: model.name as string,
 		model: model.model as string,
 		description: model.description as string,
 		enabled: model.enabled !== false,
 	};
-	if (model.backend === "claude-code") return { ...common, backend: "claude-code" };
-	return { ...common, backend: "pi", provider: model.provider as string };
 }
 
+/** Finds a model by its configured task-facing name. */
 function findModel(config: ParallelAgentsConfig, name: string): AgentModel | undefined {
 	return config.models.find((model) => model.name === name);
 }
 
+/** Resolves only models enabled for task execution. */
 function findEnabledModel(config: ParallelAgentsConfig, name: string): AgentModel | undefined {
 	const model = findModel(config, name);
 	return model?.enabled ? model : undefined;
 }
 
+/** Combines native coding tools with explicitly allowed extension tools. */
 function taskTools(allowedExtensionTools: string[]): string[] {
 	const builtins = ["read", "grep", "find", "ls", "write", "edit", "bash"];
 	return [...new Set([...builtins, ...allowedExtensionTools])];
 }
 
+/** Identifies models requiring the existing edit-argument compatibility instructions. */
 function isKimiModel(model: AgentModel): boolean {
-	return model.backend === "pi" && `${model.provider}/${model.model}`.toLowerCase().includes("kimi");
+	return `${model.provider}/${model.model}`.toLowerCase().includes("kimi");
 }
 
-/** Formats the configured execution backend and model for management UI. */
+/** Formats the native provider and model for management UI. */
 function formatModelBackend(model: AgentModel): string {
-	return model.backend === "claude-code"
-		? `Claude Code/${model.model}`
-		: `${model.provider}/${model.model}`;
+	return `${model.provider}/${model.model}`;
 }
 
-function debugLog(message: string, details?: unknown) {
+/** Writes lifecycle diagnostics without recording tool bodies or entire reports. */
+function debugLog(message: string, details?: unknown): void {
 	try {
 		ensureConfigDir();
 		const suffix = details === undefined ? "" : ` ${JSON.stringify(details, (_key, value) => value instanceof Set ? [...value] : value)}`;
@@ -277,6 +236,7 @@ function debugLog(message: string, details?: unknown) {
 	}
 }
 
+/** Builds the isolated task instructions and model-specific tool constraints. */
 function buildSubAgentPrompt(task: SubAgentTask, model: AgentModel): string {
 	const kimiEditRules = isKimiModel(model)
 		? `\n\nKimi/tool-use compatibility rules:\n- The edit tool requires this exact shape: {"path":"relative/or/absolute/path","edits":[{"oldText":"exact unique text copied from the current file","newText":"replacement text"}]}. Do not send oldText/newText at the top level.\n- Always read the target file immediately before an edit and copy oldText verbatim from that read result.\n- If an edit fails once because oldText is not unique or not found, re-read the file and either make a smaller exact edit or use bash with a short python script to rewrite the file deterministically.\n- For risky rewrites, first create an easily reverted backup outside the repo at /tmp/pi-parallel-agent-backups/<timestamp>-<basename>.bak, then report the backup path in your final answer.\n- Do not repeatedly retry the same failing edit arguments.`
@@ -284,20 +244,11 @@ function buildSubAgentPrompt(task: SubAgentTask, model: AgentModel): string {
 	return `You are an isolated coding sub-agent running as part of a parallel multi-agent task.\n\nRules:\n- Complete only the task below.\n- Follow all task constraints exactly, including any instruction that the work is read-only and must not edit files, mutate the repository, or perform state-changing actions.\n- If editing is allowed, keep edits focused and touch only files assigned in the task.\n- Do not ask the user questions. If information is missing, state assumptions in the final answer.\n- Avoid interactive commands and tools.\n- Final answer should be concise and directly useful to the main agent.${kimiEditRules}\n\nTask:\n${task.prompt}`;
 }
 
-const MAX_ACTION_DETAIL_CHARS = 800;
 const MAX_SUB_AGENT_RESULT_CHARS = 4_000;
 
-/** Limits action metadata so diagnostic logs cannot dominate the parent agent's context. */
-function formatActionDetails(value: unknown): string | undefined {
-	if (value === undefined) return undefined;
-	const text = typeof value === "string" ? value : JSON.stringify(value, (_key, item) => item instanceof Set ? [...item] : item);
-	return text.length > MAX_ACTION_DETAIL_CHARS
-		? `${text.slice(0, MAX_ACTION_DETAIL_CHARS)}… [truncated]`
-		: text;
-}
-
-function getFinalAssistantText(session: any): string {
-	const messages = Array.isArray(session.messages) ? session.messages : [];
+/** Extracts the final visible assistant report without copying its conversation. */
+function getFinalAssistantText(session: AgentSession): string {
+	const messages = session.messages;
 	for (let i = messages.length - 1; i >= 0; i--) {
 		const msg = messages[i];
 		if (msg?.role !== "assistant") continue;
@@ -305,7 +256,7 @@ function getFinalAssistantText(session: any): string {
 		if (typeof content === "string") return content;
 		if (Array.isArray(content)) {
 			const text = content
-				.map((part: any) => (part?.type === "text" && typeof part.text === "string" ? part.text : ""))
+				.map((part) => (part.type === "text" ? part.text : ""))
 				.filter(Boolean)
 				.join("\n");
 			if (text) return text;
@@ -314,18 +265,19 @@ function getFinalAssistantText(session: any): string {
 	return "(sub-agent completed without a final text response)";
 }
 
+/** Runs one task in a native Pi session and records compact supervision events. */
 async function runPiSubAgent(
 	task: SubAgentTask,
-	modelConfig: PiAgentModel,
+	modelConfig: AgentModel,
 	config: ParallelAgentsConfig,
 	ctx: ExtensionContext,
 	stats: AgentRunStats,
 	onStatsChange: () => void,
-	onControllerReady: (controller: RunningAgentController) => void,
-	onAction: (type: AgentAction["type"], toolName?: string, details?: unknown) => void,
+	onControllerReady: (controller: AgentSteeringController) => void,
+	activity: AgentActivityLog,
 ): Promise<{ ok: boolean; name: string; output: string }> {
 	// Use the live context model registry instead of creating a fresh one.
-	// Provider/model registrations from extensions (for example cursor/composer-2.5)
+	// Provider/model registrations from extensions
 	// are applied to ctx.modelRegistry; a new registry only contains built-in/static
 	// models and would fail to find extension-provided model entries.
 	const modelRegistry = ctx.modelRegistry;
@@ -390,22 +342,29 @@ async function runPiSubAgent(
 		tools: taskTools(config.allowedExtensionTools),
 	});
 
-	onControllerReady(session);
+	const controller = new AgentSteeringController(session, (type, text) => {
+		activity.record(stats.name, type, text);
+		onStatsChange();
+	});
+	onControllerReady(controller);
 	debugLog("sub-agent-start", { name: task.name, model: modelConfig.name, reasoningLevel: task.reasoningLevel });
-	const unsubscribe = session.subscribe((event: any) => {
+	const unsubscribe = session.subscribe((event) => {
+		if (event.type === "message_start" && event.message.role === "user") {
+			const content = event.message.content;
+			controller.observeUserMessage(typeof content === "string" ? content : content
+				.filter((part) => part.type === "text").map((part) => part.text).join(""));
+		}
 		if (event.type === "turn_start") {
 			stats.iterations++;
-			onAction("turn_start");
 			onStatsChange();
 			return;
 		}
 		if (event.type === "tool_execution_start") {
 			stats.actions++;
-			const args = event.args ?? {};
+			const args = event.args as Record<string, unknown>;
 			if (event.toolName === "read" && typeof args.path === "string") stats.filesRead.add(args.path);
 			if ((event.toolName === "edit" || event.toolName === "write") && typeof args.path === "string") stats.filesEdited.add(args.path);
-			debugLog("tool-start", { agent: task.name ?? modelConfig.name, tool: event.toolName, args });
-			onAction("tool_start", event.toolName, args);
+			activity.startTool(stats.name, event.toolCallId, event.toolName, args);
 			onStatsChange();
 			return;
 		}
@@ -415,406 +374,37 @@ async function runPiSubAgent(
 			return;
 		}
 		if (event.type === "tool_execution_end") {
-			debugLog("tool-end", { agent: task.name ?? modelConfig.name, tool: event.toolName, isError: event.isError, result: event.result });
-			onAction("tool_end", event.toolName, { isError: event.isError, result: event.result });
+			activity.endTool(stats.name, event.toolCallId, event.toolName, event.result, event.isError);
 		}
 	});
 
 	try {
-		await session.prompt(buildSubAgentPrompt(task, modelConfig), { source: "extension" as any });
-		if (stats.status === "cancelled") {
+		// Cancellation may arrive while the session is still being constructed.
+		if (stats.status === "cancelled") return { ok: false, name: stats.name, output: "Cancelled." };
+		await session.prompt(buildSubAgentPrompt(task, modelConfig), { source: "extension" });
+		// The control tool can change this status while prompt is awaiting completion.
+		if ((stats.status as AgentRunStatus) === "cancelled") {
 			onStatsChange();
 			return { ok: false, name: task.name ?? modelConfig.name, output: "Cancelled." };
 		}
 		stats.status = "done";
-		onAction("completed");
+		activity.record(stats.name, "completed");
 		onStatsChange();
 		const output = getFinalAssistantText(session);
-		debugLog("sub-agent-done", { name: task.name ?? modelConfig.name, filesRead: stats.filesRead, filesEdited: stats.filesEdited, output });
+		debugLog("sub-agent-done", { name: task.name ?? modelConfig.name, filesRead: stats.filesRead, filesEdited: stats.filesEdited });
 		return { ok: true, name: task.name ?? modelConfig.name, output };
 	} catch (error) {
 		const wasCancelled = stats.status === "cancelled";
 		stats.status = wasCancelled ? "cancelled" : "failed";
-		onAction(wasCancelled ? "cancelled" : "failed", undefined, error instanceof Error ? error.message : String(error));
+		activity.record(stats.name, wasCancelled ? "cancelled" : "failed", error instanceof Error ? error.message : String(error));
 		onStatsChange();
 		debugLog("sub-agent-failed", { name: task.name ?? modelConfig.name, error: error instanceof Error ? error.stack ?? error.message : String(error) });
 		throw error;
 	} finally {
+		controller.finish();
 		unsubscribe();
 		session.dispose();
 	}
-}
-
-/** Builds an environment that cannot override Claude subscription auth with metered providers. */
-function createClaudeSubscriptionEnvironment(): NodeJS.ProcessEnv {
-	const environment = { ...process.env };
-	for (const name of CLAUDE_AUTH_ENVIRONMENT_OVERRIDES) delete environment[name];
-	environment.CLAUDE_CODE_DISABLE_1M_CONTEXT = "1";
-	environment.CLAUDE_CODE_DISABLE_FAST_MODE = "1";
-	return environment;
-}
-
-/** Runs a short Claude CLI command and captures its complete output. */
-function captureClaudeCommand(args: string[], cwd: string, timeoutMs = 15_000): Promise<{ stdout: string; stderr: string; code: number }> {
-	return new Promise((resolve, reject) => {
-		const child = spawn(CLAUDE_COMMAND, args, {
-			cwd,
-			env: createClaudeSubscriptionEnvironment(),
-			stdio: ["ignore", "pipe", "pipe"],
-			windowsHide: true,
-		});
-		let stdout = "";
-		let stderr = "";
-		const timeout = setTimeout(() => {
-			child.kill("SIGTERM");
-			reject(new Error(`Claude Code command timed out after ${timeoutMs}ms.`));
-		}, timeoutMs);
-		child.stdout.setEncoding("utf8");
-		child.stderr.setEncoding("utf8");
-		child.stdout.on("data", (chunk: string) => { stdout += chunk; });
-		child.stderr.on("data", (chunk: string) => { stderr += chunk; });
-		child.once("error", (error) => {
-			clearTimeout(timeout);
-			reject(new Error(`Could not start Claude Code. Ensure the claude executable is installed and on PATH: ${error.message}`));
-		});
-		child.once("close", (code) => {
-			clearTimeout(timeout);
-			resolve({ stdout, stderr, code: code ?? -1 });
-		});
-	});
-}
-
-/** Refuses Claude execution unless the installed CLI confirms first-party subscription auth. */
-async function verifyClaudeSubscriptionAuth(cwd: string, requestedModels: ClaudeCodeAgentModel[] = []): Promise<void> {
-	const result = await captureClaudeCommand(["--safe-mode", "auth", "status"], cwd);
-	if (result.code !== 0) {
-		throw new Error(`Claude Code authentication check failed: ${result.stderr.trim() || result.stdout.trim() || `exit ${result.code}`}`);
-	}
-	let status: Record<string, unknown>;
-	try {
-		status = JSON.parse(result.stdout) as Record<string, unknown>;
-	} catch {
-		throw new Error(`Claude Code returned invalid authentication status: ${result.stdout.trim() || "(empty output)"}`);
-	}
-	if (status.loggedIn !== true || status.authMethod !== "claude.ai" || status.apiProvider !== "firstParty") {
-		throw new Error(
-			"Claude Code sub-agents require first-party claude.ai subscription authentication. Run `claude auth login` and select your Claude subscription; API, gateway, Bedrock, Vertex, and Foundry auth are intentionally rejected to prevent metered usage.",
-		);
-	}
-	const requestsFable = requestedModels.some((model) => {
-		const id = model.model.toLowerCase();
-		return id === "fable" || id.startsWith("claude-fable-");
-	});
-	if (status.subscriptionType === "pro" && requestsFable) {
-		throw new Error(
-			"Claude Code reports a Pro subscription, which does not include Fable. Configure Opus, Sonnet, or Haiku instead.",
-		);
-	}
-}
-
-/** Returns the message content blocks carried by Claude stream events. */
-function getClaudeContentBlocks(event: Record<string, any>): Array<Record<string, any>> {
-	const content = event.message?.content;
-	return Array.isArray(content) ? content : [];
-}
-
-/** Applies one Claude stream event to pi's shared run statistics and action log. */
-function processClaudeEvent(
-	event: Record<string, any>,
-	stats: AgentRunStats,
-	onStatsChange: () => void,
-	onAction: (type: AgentAction["type"], toolName?: string, details?: unknown) => void,
-	toolNames: Map<string, string>,
-): ClaudeResultMessage | undefined {
-	if (event.type === "assistant" && event.parent_tool_use_id == null) {
-		stats.iterations++;
-		onAction("turn_start");
-	}
-	if (event.type === "assistant") {
-		for (const block of getClaudeContentBlocks(event)) {
-			if (block.type !== "tool_use" || typeof block.name !== "string") continue;
-			stats.actions++;
-			if (typeof block.id === "string") toolNames.set(block.id, block.name);
-			const input = block.input ?? {};
-			const path = typeof input.file_path === "string" ? input.file_path : typeof input.path === "string" ? input.path : undefined;
-			if (["Read", "Glob", "Grep"].includes(block.name) && path) stats.filesRead.add(path);
-			if (["Edit", "Write", "NotebookEdit"].includes(block.name) && path) stats.filesEdited.add(path);
-			onAction("tool_start", block.name, input);
-		}
-	}
-	if (event.type === "user") {
-		for (const block of getClaudeContentBlocks(event)) {
-			if (block.type !== "tool_result") continue;
-			const toolName = typeof block.tool_use_id === "string" ? toolNames.get(block.tool_use_id) : undefined;
-			onAction("tool_end", toolName, { isError: block.is_error === true, result: block.content });
-		}
-	}
-	if (event.type === "result") {
-		const result = event as ClaudeResultMessage;
-		if (typeof result.num_turns === "number") stats.iterations = result.num_turns;
-		if (typeof result.total_cost_usd === "number") stats.cost = result.total_cost_usd;
-		onStatsChange();
-		return result;
-	}
-	onStatsChange();
-	return undefined;
-}
-
-/** Extracts visible assistant text from a pi JSON message. */
-function getPiMessageText(message: Record<string, any> | undefined): string | undefined {
-	if (message?.role !== "assistant") return undefined;
-	if (typeof message.content === "string") return message.content.trim() || undefined;
-	if (!Array.isArray(message.content)) return undefined;
-	const text = message.content
-		.map((part: any) => (part?.type === "text" && typeof part.text === "string" ? part.text : ""))
-		.filter(Boolean)
-		.join("\n")
-		.trim();
-	return text || undefined;
-}
-
-/** Records one JSON event emitted by a non-interactive pi CLI run. */
-function processPiCliEvent(
-	event: Record<string, any>,
-	state: PiCliRunState,
-	stats: AgentRunStats,
-	onStatsChange: () => void,
-	onAction: (type: AgentAction["type"], toolName?: string, details?: unknown) => void,
-): void {
-	if (event.type === "turn_start") {
-		stats.iterations++;
-		onAction("turn_start");
-	}
-	if (event.type === "tool_execution_start") {
-		stats.actions++;
-		const args = event.args ?? {};
-		if (["read", "grep", "find", "ls"].includes(event.toolName) && typeof args.path === "string") {
-			stats.filesRead.add(args.path);
-		}
-		if (["edit", "write"].includes(event.toolName) && typeof args.path === "string") {
-			stats.filesEdited.add(args.path);
-		}
-		onAction("tool_start", event.toolName, args);
-	}
-	if (event.type === "tool_execution_end") {
-		onAction("tool_end", event.toolName, { isError: event.isError, result: event.result });
-	}
-	if (event.type === "message_end") {
-		state.finalText = getPiMessageText(event.message) ?? state.finalText;
-		stats.cost += event.message?.usage?.cost?.total ?? 0;
-		if (event.message?.stopReason === "error" && typeof event.message.errorMessage === "string") {
-			state.error = event.message.errorMessage;
-		}
-	}
-	if (event.type === "agent_end" && Array.isArray(event.messages)) {
-		for (const message of event.messages) {
-			state.finalText = getPiMessageText(message) ?? state.finalText;
-		}
-	}
-	onStatsChange();
-}
-
-/** Runs Cursor-backed models through pi exactly as a non-interactive user invocation. */
-async function runCursorCliSubAgent(
-	task: SubAgentTask,
-	modelConfig: PiAgentModel,
-	ctx: ExtensionContext,
-	stats: AgentRunStats,
-	onStatsChange: () => void,
-	onControllerReady: (controller: RunningAgentController) => void,
-	onAction: (type: AgentAction["type"], toolName?: string, details?: unknown) => void,
-): Promise<{ ok: boolean; name: string; output: string }> {
-	const args = [
-		"--model", `${modelConfig.provider}/${modelConfig.model}`,
-		"--thinking", task.reasoningLevel,
-		"--cursor-mode", "agent",
-		"--cursor-no-local-resume",
-		"--no-session",
-		"--mode", "json",
-		"--print",
-		"--exclude-tools", "parallel_agents,parallel_agents_control,ask_user_questions,ask_question",
-		buildSubAgentPrompt(task, modelConfig),
-	];
-	const child: ChildProcessWithoutNullStreams = spawn("pi", args, {
-		cwd: ctx.cwd,
-		env: process.env,
-		stdio: ["pipe", "pipe", "pipe"],
-		windowsHide: true,
-	});
-	onControllerReady({ abort: () => { if (!child.killed) child.kill("SIGTERM"); } });
-	debugLog("cursor-cli-sub-agent-start", {
-		name: task.name,
-		model: `${modelConfig.provider}/${modelConfig.model}`,
-		reasoningLevel: task.reasoningLevel,
-	});
-
-	const state: PiCliRunState = {};
-	let stdoutBuffer = "";
-	let stderr = "";
-	child.stdout.setEncoding("utf8");
-	child.stderr.setEncoding("utf8");
-	child.stdout.on("data", (chunk: string) => {
-		stdoutBuffer += chunk;
-		const lines = stdoutBuffer.split(/\r?\n/);
-		stdoutBuffer = lines.pop() ?? "";
-		for (const line of lines) {
-			if (!line.trim()) continue;
-			try {
-				processPiCliEvent(JSON.parse(line), state, stats, onStatsChange, onAction);
-			} catch (error) {
-				debugLog("cursor-cli-stream-parse-failed", { line: line.slice(0, 2_000), error: String(error) });
-			}
-		}
-	});
-	child.stderr.on("data", (chunk: string) => {
-		stderr = `${stderr}${chunk}`.slice(-8_000);
-	});
-	child.stdin.end();
-
-	const exitCode = await new Promise<number>((resolve, reject) => {
-		child.once("error", (error) => reject(new Error(`Could not start pi CLI: ${error.message}`)));
-		child.once("close", (code) => resolve(code ?? -1));
-	});
-	if (stdoutBuffer.trim()) {
-		try {
-			processPiCliEvent(JSON.parse(stdoutBuffer), state, stats, onStatsChange, onAction);
-		} catch (error) {
-			debugLog("cursor-cli-final-stream-parse-failed", { line: stdoutBuffer.slice(0, 2_000), error: String(error) });
-		}
-	}
-	if (stats.status === "cancelled") {
-		return { ok: false, name: task.name ?? modelConfig.name, output: "Cancelled." };
-	}
-	if (exitCode !== 0 || state.error) {
-		stats.status = "failed";
-		const message = state.error || stderr.trim() || `pi CLI exited with code ${exitCode}`;
-		onAction("failed", undefined, message);
-		onStatsChange();
-		throw new Error(message);
-	}
-
-	stats.status = "done";
-	onAction("completed", undefined, { model: `${modelConfig.provider}/${modelConfig.model}` });
-	onStatsChange();
-	const output = state.finalText ?? "(Cursor sub-agent completed without a final text response)";
-	debugLog("cursor-cli-sub-agent-done", { name: task.name ?? modelConfig.name, output });
-	return { ok: true, name: task.name ?? modelConfig.name, output };
-}
-
-/** Runs an isolated task through the installed Claude Code CLI. */
-async function runClaudeCodeSubAgent(
-	task: SubAgentTask,
-	modelConfig: ClaudeCodeAgentModel,
-	ctx: ExtensionContext,
-	stats: AgentRunStats,
-	onStatsChange: () => void,
-	onControllerReady: (controller: RunningAgentController) => void,
-	onAction: (type: AgentAction["type"], toolName?: string, details?: unknown) => void,
-): Promise<{ ok: boolean; name: string; output: string }> {
-	const args = [
-		"--safe-mode",
-		"-p",
-		"--output-format", "stream-json",
-		"--verbose",
-		"--no-session-persistence",
-		"--prompt-suggestions", "false",
-		"--model", modelConfig.model,
-		"--effort", task.reasoningLevel,
-		"--tools", CLAUDE_TOOLS,
-		"--allowedTools", CLAUDE_TOOLS,
-		"--permission-mode", "dontAsk",
-	];
-	const child: ChildProcessWithoutNullStreams = spawn(CLAUDE_COMMAND, args, {
-		cwd: ctx.cwd,
-		env: createClaudeSubscriptionEnvironment(),
-		stdio: ["pipe", "pipe", "pipe"],
-		windowsHide: true,
-	});
-	onControllerReady({ abort: () => { if (!child.killed) child.kill("SIGTERM"); } });
-	debugLog("claude-sub-agent-start", { name: task.name, model: modelConfig.model, reasoningLevel: task.reasoningLevel });
-
-	let resultMessage: ClaudeResultMessage | undefined;
-	let stdoutBuffer = "";
-	let stderr = "";
-	const toolNames = new Map<string, string>();
-	child.stdout.setEncoding("utf8");
-	child.stderr.setEncoding("utf8");
-	child.stdout.on("data", (chunk: string) => {
-		stdoutBuffer += chunk;
-		const lines = stdoutBuffer.split(/\r?\n/);
-		stdoutBuffer = lines.pop() ?? "";
-		for (const line of lines) {
-			if (!line.trim()) continue;
-			try {
-				const parsed = JSON.parse(line) as Record<string, any>;
-				resultMessage = processClaudeEvent(parsed, stats, onStatsChange, onAction, toolNames) ?? resultMessage;
-			} catch (error) {
-				debugLog("claude-stream-parse-failed", { line: line.slice(0, 2_000), error: String(error) });
-			}
-		}
-	});
-	child.stderr.on("data", (chunk: string) => {
-		stderr = `${stderr}${chunk}`.slice(-8_000);
-	});
-
-	const completion = new Promise<number>((resolve, reject) => {
-		child.once("error", (error) => reject(new Error(`Could not start Claude Code: ${error.message}`)));
-		child.once("close", (code) => resolve(code ?? -1));
-	});
-	child.stdin.end(buildSubAgentPrompt(task, modelConfig));
-
-	try {
-		const exitCode = await completion;
-		if (stats.status === "cancelled") return { ok: false, name: task.name ?? modelConfig.name, output: "Cancelled." };
-		if (stdoutBuffer.trim()) {
-			try {
-				const parsed = JSON.parse(stdoutBuffer) as Record<string, any>;
-				resultMessage = processClaudeEvent(parsed, stats, onStatsChange, onAction, toolNames) ?? resultMessage;
-			} catch (error) {
-				debugLog("claude-final-stream-parse-failed", { line: stdoutBuffer.slice(0, 2_000), error: String(error) });
-			}
-		}
-		if (exitCode !== 0 || !resultMessage || resultMessage.subtype !== "success" || resultMessage.is_error === true) {
-			const errors = resultMessage?.errors?.join("; ");
-			const denials = resultMessage?.permission_denials?.length
-				? ` Permission denials: ${JSON.stringify(resultMessage.permission_denials)}`
-				: "";
-			throw new Error(errors || `${stderr.trim() || "Claude Code did not return a successful result."}${denials} (exit ${exitCode})`);
-		}
-		stats.status = "done";
-		onAction("completed", undefined, { models: Object.keys(resultMessage.modelUsage ?? {}) });
-		onStatsChange();
-		const output = resultMessage.result?.trim() || "(Claude Code completed without a final text response)";
-		debugLog("claude-sub-agent-done", { name: task.name ?? modelConfig.name, output });
-		return { ok: true, name: task.name ?? modelConfig.name, output };
-	} catch (error) {
-		const wasCancelled = stats.status === "cancelled";
-		stats.status = wasCancelled ? "cancelled" : "failed";
-		onAction(wasCancelled ? "cancelled" : "failed", undefined, error instanceof Error ? error.message : String(error));
-		onStatsChange();
-		debugLog("claude-sub-agent-failed", { name: task.name ?? modelConfig.name, error: error instanceof Error ? error.stack ?? error.message : String(error) });
-		throw error;
-	}
-}
-
-/** Selects the configured execution backend for one sub-agent task. */
-function runSubAgent(
-	task: SubAgentTask,
-	modelConfig: AgentModel,
-	config: ParallelAgentsConfig,
-	ctx: ExtensionContext,
-	stats: AgentRunStats,
-	onStatsChange: () => void,
-	onControllerReady: (controller: RunningAgentController) => void,
-	onAction: (type: AgentAction["type"], toolName?: string, details?: unknown) => void,
-): Promise<{ ok: boolean; name: string; output: string }> {
-	if (modelConfig.backend === "claude-code") {
-		return runClaudeCodeSubAgent(task, modelConfig, ctx, stats, onStatsChange, onControllerReady, onAction);
-	}
-	if (modelConfig.provider === "cursor") {
-		return runCursorCliSubAgent(task, modelConfig, ctx, stats, onStatsChange, onControllerReady, onAction);
-	}
-	return runPiSubAgent(task, modelConfig, config, ctx, stats, onStatsChange, onControllerReady, onAction);
 }
 
 /** Formats bounded report chunks so the parent can retrieve long reports without loading all of them at once. */
@@ -871,16 +461,9 @@ async function waitForRun(
 	}
 }
 
-/** Formats a recorded sub-agent action for both model context and the interactive transcript. */
-function formatRecordedAction(action: AgentAction): string {
-	const tool = action.toolName ? `\n   Tool: ${action.toolName}` : "";
-	const parameters = action.type === "tool_start" && action.details ? `\n   Parameters: ${action.details}` : "";
-	const details = action.type !== "tool_start" && action.details ? `\n   Details: ${action.details}` : "";
-	return `${action.index}. ${action.agent} ${action.type}${tool}${parameters}${details}`;
-}
-
-async function selectPiAgentModel(ctx: ExtensionContext): Promise<PiAgentModel | undefined> {
-	const available = ctx.modelRegistry.getAvailable();
+/** Collects an authenticated native model and its routing description. */
+async function selectPiAgentModel(ctx: ExtensionContext): Promise<AgentModel | undefined> {
+	const available = ctx.modelRegistry.getAvailable().filter((model) => model.provider !== "cursor");
 	if (available.length === 0) {
 		ctx.ui.notify("No authenticated models available. Use /login or configure API keys first.", "error");
 		return undefined;
@@ -893,34 +476,18 @@ async function selectPiAgentModel(ctx: ExtensionContext): Promise<PiAgentModel |
 	if (!modelId) return undefined;
 	const description = await ctx.ui.input("What is this model good at?", "");
 	if (!description?.trim()) return undefined;
-	return { name: modelId, backend: "pi", provider, model: modelId, description: description.trim(), enabled: true };
+	return { name: modelId, provider, model: modelId, description: description.trim(), enabled: true };
 }
 
-/** Collects a Claude Code alias or full model ID and its agent-facing routing metadata. */
-async function selectClaudeCodeModel(ctx: ExtensionContext): Promise<ClaudeCodeAgentModel | undefined> {
-	const customChoice = "Custom model ID…";
-	const selected = await ctx.ui.select("Select Claude Code model", [...CLAUDE_MODEL_ALIASES, customChoice]);
-	if (!selected) return undefined;
-	const model = selected === customChoice
-		? (await ctx.ui.input("Claude Code model ID or alias", ""))?.trim()
-		: selected;
-	if (!model) return undefined;
-	const defaultName = `claude-${model}`;
-	const name = (await ctx.ui.input("Configured parallel-agent name", defaultName))?.trim();
-	if (!name) return undefined;
-	const description = await ctx.ui.input("What is this model good at?", "");
-	if (!description?.trim()) return undefined;
-	return { name, backend: "claude-code", model, description: description.trim(), enabled: true };
-}
-
-export default function parallelAgentsExtension(pi: ExtensionAPI) {
+/** Registers native sub-agent execution, supervision, and configuration tools. */
+export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 	const sessionCostByModel = new Map<string, number>();
 	const runs = new Map<string, ParallelAgentRun>();
 	const progressWidgetKeys = new Set<string>();
 	let nextRunId = 1;
 
 	/** Displays estimated API-equivalent sub-agent usage separately from the main model. */
-	const renderCostStatus = (ctx: ExtensionContext) => {
+	const renderCostStatus = (ctx: ExtensionContext): void => {
 		const costs = [...sessionCostByModel.entries()].filter(([, cost]) => cost > 0);
 		if (costs.length === 0) {
 			ctx.ui.setStatus("parallel-agent-cost", undefined);
@@ -934,13 +501,14 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "parallel_agents",
 		label: "Parallel Agents",
-		description: "Run multiple isolated sub-agents concurrently. Every task selects a configured model, a required low/medium/high reasoning level, and a detailed prompt. To make a task read-only, explicitly instruct its sub-agent never to edit files, mutate the repository, or perform any other state-changing action. Blocks until all sub-agents finish.",
+		description: "Run multiple isolated sub-agents concurrently. Every task selects a configured model, a required low/medium/high reasoning level, and a detailed prompt. To make a task read-only, explicitly instruct its sub-agent never to edit files, mutate the repository, or perform any other state-changing action. Uses native Pi sessions only. Blocks by default; set blocking=false to supervise and steer while running.",
 		promptSnippet: "Spawn isolated parallel sub-agents with per-task models and reasoning levels.",
 		promptGuidelines: [
 			"Use parallel_agents when independent research or implementation tasks can run concurrently.",
 			"parallel_agents requires every task to specify a configured model and a low, medium, or high reasoning level.",
 			"For read-only parallel_agents tasks, explicitly state in the task prompt that the sub-agent must never edit files, mutate the repository, or perform other state-changing actions.",
 			"For parallel_agents tasks that may edit, assign non-overlapping files or directories to concurrent sub-agents.",
+			"Use parallel_agents blocking=false and unique task names to supervise work. Poll parallel_agents_control read_actions with after=nextCursor; steer named agents to correct direction. Steering is queued after current tools, not an emergency stop.",
 		],
 		parameters: PARALLEL_AGENTS_SCHEMA,
 		async execute(_toolCallId, params: ParallelAgentsInput, _signal, onUpdate, ctx) {
@@ -952,14 +520,11 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 			}
 			const unavailable = params.tasks.map((task) => task.model).filter((name) => !findEnabledModel(config, name));
 			if (unavailable.length > 0) throw new Error(`Unknown or disabled parallel-agent model(s): ${[...new Set(unavailable)].join(", ")}.`);
-			const selectedModels = params.tasks.map((task) => findEnabledModel(config, task.model)!);
-			if (selectedModels.some((model) => model.backend === "claude-code")) {
-				onUpdate?.({ content: [{ type: "text", text: "Verifying first-party Claude subscription authentication..." }], details: {} });
-				await verifyClaudeSubscriptionAuth(
-					ctx.cwd,
-					selectedModels.filter((model): model is ClaudeCodeAgentModel => model.backend === "claude-code"),
-				);
+			const names = params.tasks.map((task) => task.name ?? task.model);
+			if (names.some((name) => !name.trim() || name.length > 120) || new Set(names).size !== names.length) {
+				throw new Error("Task names must be nonempty, at most 120 characters, and unique within a run. Name each task when reusing a model.");
 			}
+			const selectedModels = params.tasks.map((task) => findEnabledModel(config, task.model)!);
 
 			const stats: AgentRunStats[] = params.tasks.map((task) => ({
 				name: task.name ?? task.model,
@@ -975,7 +540,8 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 			const runId = `parallel-${nextRunId++}`;
 			const progressWidgetKey = `parallel-agents:${runId}`;
 			progressWidgetKeys.add(progressWidgetKey);
-			const renderStats = () => {
+			/** Refreshes the task progress widget without adding model context. */
+			const renderStats = (): void => {
 				const lines = stats.map((stat) => {
 					const reasoningColor = getReasoningColor(stat.reasoningLevel);
 					const icon = stat.status === "active"
@@ -993,7 +559,8 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 			renderStats();
 			onUpdate?.({ content: [{ type: "text", text: `Starting ${params.tasks.length} parallel sub-agent(s)...` }], details: {} });
 			const reportedCosts = stats.map(() => 0);
-			const updateStatsAndCosts = (index: number) => {
+			/** Adds newly reported usage and refreshes progress for one task. */
+			const updateStatsAndCosts = (index: number): void => {
 				const costDelta = stats[index].cost - reportedCosts[index];
 				if (costDelta !== 0) {
 					sessionCostByModel.set(stats[index].model, (sessionCostByModel.get(stats[index].model) ?? 0) + costDelta);
@@ -1002,17 +569,20 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 				}
 				renderStats();
 			};
-			const run: ParallelAgentRun = { id: runId, tasks: params.tasks, stats, actions: [], controllers: [], cancelRequested: new Set(), completion: Promise.resolve([]) };
+			const run: ParallelAgentRun = { id: runId, tasks: params.tasks, stats, activity: new AgentActivityLog(), controllers: [], completion: Promise.resolve([]) };
 			runs.set(runId, run);
-			const settled = Promise.allSettled(params.tasks.map((task, index) => runSubAgent(
+			const settled = Promise.allSettled(params.tasks.map((task, index) => runPiSubAgent(
 				task, selectedModels[index], config, ctx, stats[index], () => updateStatsAndCosts(index),
-				(controller) => { run.controllers[index] = controller; if (run.cancelRequested.has(index)) void controller.abort(); },
-				(type, toolName, details) => run.actions.push({ index: run.actions.length, timestamp: Date.now(), agent: stats[index].name, type, toolName, details: formatActionDetails(details) }),
+				(controller) => { run.controllers[index] = controller; },
+				run.activity,
 			)));
 			run.completion = settled.then((items) => {
 				const results = items.map((item, index) => {
 					if (item.status === "fulfilled") return item.value;
-					if (stats[index].status === "active") stats[index].status = "failed";
+					if (stats[index].status === "active") {
+						stats[index].status = "failed";
+						run.activity.record(stats[index].name, "failed", String(item.reason));
+					}
 					return { ok: false, name: params.tasks[index].name ?? params.tasks[index].model, output: item.reason instanceof Error ? item.reason.message : String(item.reason) };
 				});
 				run.results = results;
@@ -1023,9 +593,9 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 				}, 1500);
 				return results;
 			});
-			if (params.blocking === false) return { content: [{ type: "text", text: `Started ${params.tasks.length} background sub-agent(s). Run ID: ${runId}. Use parallel_agents_control to inspect, wait, read actions, or cancel.` }], details: { runId } };
+			if (params.blocking === false) return { content: [{ type: "text", text: `Started ${params.tasks.length} background sub-agent(s). Run ID: ${runId}. Use parallel_agents_control to inspect, steer, wait, read actions, or cancel.` }], details: { runId } };
 			const results = await run.completion;
-			return { content: [{ type: "text", text: formatResults(results) }], details: { runId, results } };
+			return { content: [{ type: "text", text: formatResults(results) }], details: { runId } };
 		},
 	});
 
@@ -1033,7 +603,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "parallel_agents_control",
 		label: "Parallel Agents Control",
-		description: "Inspect, wait for, read recent or explicitly ranged recorded actions, read bounded chunks of completed sub-agent reports, or cancel a background parallel_agents run. read_actions returns only the four newest actions by default; use readRegion for an explicit action-index range. Use read_results with reportRegion to retrieve a long report in 4,000-character chunks. The wait action accepts timeoutSeconds for a bounded wait and never cancels sub-agents when it expires.",
+		description: "Supervise native Pi sub-agents: status, wait, read_actions, read_action_details, read_results, steer, cancel. read_actions returns compact tool metadata, no successful outputs or code bodies, capped at 20 events and 4,000 characters. Default: four newest events. Poll with after=nextCursor for changes, using the same agents filter; after=-1 starts at the beginning. read_action_details explicitly pages retained args/results by actionIndex and detailRegion. read_results pages reports with reportRegion. steer requires named agents and a message, queues at the next turn boundary, and records delivery separately from acceptance. Startup/completed agents reject steering. wait timeoutSeconds never cancels agents.",
 		parameters: PARALLEL_AGENTS_CONTROL_SCHEMA,
 		renderCall(args, theme) {
 			const timeout = typeof args.timeoutSeconds === "number" ? ` · timeout ${args.timeoutSeconds}s` : "";
@@ -1041,14 +611,6 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 		},
 		renderResult(result, { isPartial }, theme) {
 			if (isPartial) return new Text(theme.fg("dim", "Waiting for background sub-agents…"), 0, 0);
-			const actions = (result.details as { actions?: AgentAction[] } | undefined)?.actions;
-			if (actions) {
-				const heading = theme.fg("accent", "Recorded sub-agent tool calls");
-				const body = actions.length > 0
-					? actions.map(formatRecordedAction).join("\n")
-					: "No recorded actions in this segment.";
-				return new Text(`${heading}\n${body}`, 0, 0);
-			}
 			const content = result.content
 				.filter((part) => part.type === "text")
 				.map((part) => part.text)
@@ -1059,8 +621,27 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 			const run = runs.get(params.runId);
 			if (!run) throw new Error(`Unknown parallel-agent run ID: ${params.runId}.`);
 			const indexes = params.agents?.length ? run.stats.flatMap((stat, index) => params.agents!.includes(stat.name) ? [index] : []) : run.stats.map((_stat, index) => index);
-			if (indexes.length === 0) throw new Error("No matching task names in this run.");
-			if (params.action === "status") return { content: [{ type: "text", text: indexes.map((index) => `${run.stats[index].name}: ${run.stats[index].status}; ${run.stats[index].actions} actions`).join("\n") }], details: { runId: run.id } };
+			const unknown = params.agents?.filter((name) => !run.stats.some((stat) => stat.name === name)) ?? [];
+			if (unknown.length > 0) throw new Error(`Unknown task names: ${unknown.join(", ")}.`);
+			if (params.action === "status") return { content: [{ type: "text", text: indexes.map((index) => `${run.stats[index].name}: ${run.stats[index].status}; ${run.stats[index].actions} actions; ${run.controllers[index]?.pendingCount ?? 0} queued corrections`).join("\n") }], details: { runId: run.id } };
+			if (params.action === "steer") {
+				if (!params.agents?.length || !params.message) throw new Error("steer requires explicit agents and a nonempty message.");
+				const controllers = indexes.map((index) => {
+					if (run.stats[index].status !== "active") throw new Error(`${run.stats[index].name} is ${run.stats[index].status}; cannot steer.`);
+					const controller = run.controllers[index];
+					if (!controller) throw new Error(`${run.stats[index].name} is still starting. Retry after it begins running.`);
+					controller.assertCanSteer(params.message!);
+					return controller;
+				});
+				// Report each target separately if a session finishes during multi-agent delivery.
+				const receipts = await Promise.allSettled(controllers.map((controller) => controller.steer(params.message!)));
+				return {
+					content: [{ type: "text", text: receipts.map((receipt, index) => receipt.status === "fulfilled"
+						? `${run.stats[indexes[index]].name}: accepted ${receipt.value} into Pi's steering queue. See read_actions for delivery; acceptance does not mean applied.`
+						: `${run.stats[indexes[index]].name}: not queued: ${String(receipt.reason)}`).join("\n") }],
+					details: { runId: run.id },
+				};
+			}
 			if (params.action === "wait") {
 				const outcome = await waitForRun(run, params.timeoutSeconds, signal);
 				if (outcome === "timed_out") {
@@ -1086,22 +667,24 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 				};
 			}
 			if (params.action === "read_actions") {
-				if (params.readRegion && params.readRegion.end < params.readRegion.start) {
-					throw new Error("readRegion.end must be greater than or equal to readRegion.start.");
-				}
-				const matchingActions = run.actions.filter((entry) => indexes.some((index) => run.stats[index].name === entry.agent));
-				const actions = params.readRegion
-					? matchingActions.filter((entry) => entry.index >= params.readRegion!.start && entry.index <= params.readRegion!.end)
-					: params.offset !== undefined || params.limit !== undefined
-						? matchingActions.slice(params.offset ?? 0, (params.offset ?? 0) + (params.limit ?? 20))
-						: matchingActions.slice(-4);
-				return {
-					content: [{ type: "text", text: actions.length ? actions.map(formatRecordedAction).join("\n") : "No recorded actions in this region." }],
-					details: { runId: run.id, readRegion: params.readRegion, totalActions: matchingActions.length, actions },
-				};
+				const page = run.activity.read({ agents: indexes.map((index) => run.stats[index].name), after: params.after, readRegion: params.readRegion, limit: params.limit, offset: params.offset });
+				return { content: [{ type: "text", text: page.text }], details: { runId: run.id, nextCursor: page.nextCursor, hasMore: page.hasMore } };
 			}
-			if (params.action === "cancel") { await Promise.all(indexes.map(async (index) => { if (run.stats[index].status !== "active") return; run.cancelRequested.add(index); run.stats[index].status = "cancelled"; run.actions.push({ index: run.actions.length, timestamp: Date.now(), agent: run.stats[index].name, type: "cancelled", details: "Cancellation requested." }); await run.controllers[index]?.abort(); })); return { content: [{ type: "text", text: `Cancellation requested for ${indexes.map((index) => run.stats[index].name).join(", ")}.` }], details: { runId: run.id } }; }
-			throw new Error("action must be status, wait, read_actions, read_results, or cancel.");
+			if (params.action === "read_action_details") {
+				if (params.actionIndex === undefined) throw new Error("read_action_details requires actionIndex.");
+				const page = run.activity.readDetails(params.actionIndex, params.detailRegion, indexes.map((index) => run.stats[index].name));
+				return { content: [{ type: "text", text: page.text }], details: { runId: run.id } };
+			}
+			if (params.action === "cancel") {
+				await Promise.all(indexes.map(async (index) => {
+					if (run.stats[index].status !== "active") return;
+					run.stats[index].status = "cancelled";
+					run.activity.record(run.stats[index].name, "cancelled", "Cancellation requested.");
+					await run.controllers[index]?.abort();
+				}));
+				return { content: [{ type: "text", text: `Cancellation requested for ${indexes.map((index) => run.stats[index].name).join(", ")}.` }], details: { runId: run.id } };
+			}
+			throw new Error("action must be status, wait, read_actions, read_action_details, read_results, steer, or cancel.");
 		},
 	});
 
@@ -1110,26 +693,17 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 		handler: async (_args, ctx) => {
 			const config = loadConfig();
 			while (true) {
-				const action = await ctx.ui.select("Parallel agents", ["List models", "Add pi model", "Add Claude Code model", "Check Claude Code subscription auth", "Edit description", "Enable or disable model", "Delete model", `Set max parallel agents (current ${config.maxParallelAgents})`, "Show config path", "Done"]);
+				const action = await ctx.ui.select("Parallel agents", ["List models", "Add model", "Edit description", "Enable or disable model", "Delete model", `Set max parallel agents (current ${config.maxParallelAgents})`, "Show config path", "Done"]);
 				if (!action || action === "Done") break;
 				if (action === "List models") {
 					const list = config.models.map((model) => `- ${model.name} [${model.enabled ? "enabled" : "disabled"}] (${formatModelBackend(model)}): ${model.description}`).join("\n");
 					ctx.ui.notify(list || "No models configured.", "info");
-				} else if (action === "Add pi model" || action === "Add Claude Code model") {
-					const model = action === "Add pi model"
-						? await selectPiAgentModel(ctx)
-						: await selectClaudeCodeModel(ctx);
+				} else if (action === "Add model") {
+					const model = await selectPiAgentModel(ctx);
 					if (model) {
 						config.models = [...config.models.filter((entry) => entry.name !== model.name), model];
 						saveConfig(config);
 						ctx.ui.notify(`Saved model ${model.name}`, "info");
-					}
-				} else if (action === "Check Claude Code subscription auth") {
-					try {
-						await verifyClaudeSubscriptionAuth(ctx.cwd);
-						ctx.ui.notify("Claude Code is using first-party claude.ai subscription authentication.", "info");
-					} catch (error) {
-						ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
 					}
 				} else if (action === "Edit description") {
 					const selected = await ctx.ui.select("Select model", config.models.map((model) => model.name));
@@ -1179,12 +753,11 @@ export default function parallelAgentsExtension(pi: ExtensionAPI) {
 	pi.on("session_shutdown", async (_event, ctx) => {
 		for (const key of progressWidgetKeys) ctx.ui.setWidget(key, undefined);
 		progressWidgetKeys.clear();
-		await Promise.all([...runs.values()].map((run) => Promise.all(run.controllers.map(async (controller, index) => {
-			if (controller && run.stats[index].status === "active") {
-				run.cancelRequested.add(index);
-				run.stats[index].status = "cancelled";
-				await controller.abort();
-			}
+		await Promise.all([...runs.values()].map((run) => Promise.all(run.stats.map(async (stat, index) => {
+			if (stat.status !== "active") return;
+			// Include starting agents whose controllers have not been constructed yet.
+			stat.status = "cancelled";
+			await run.controllers[index]?.abort();
 		}))));
 		runs.clear();
 	});
