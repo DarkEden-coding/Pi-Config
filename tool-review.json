@@ -2562,6 +2562,169 @@
     },
     {
       "kind": "structured",
+      "executable": "tar",
+      "argsPrefix": [
+        "-xzf"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Extract a package archive for inspection",
+      "id": "49db7413-c05b-468f-9acf-3669dfb8ea45",
+      "enabled": true,
+      "createdAt": "2026-09-04T14:02:47.516Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "npx",
+      "argsPrefix": [
+        "tsc",
+        "--noEmit"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run TypeScript validation without emitting files",
+      "id": "ac7e2b43-0fb4-453d-884c-f861b91e99b1",
+      "enabled": true,
+      "createdAt": "2026-09-04T17:21:21.718Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "shasum",
+      "argsPrefix": [
+        "-a",
+        "256"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Compute file hashes without modification",
+      "id": "99ffbf67-01f2-45b6-81e3-2453fc348076",
+      "enabled": true,
+      "createdAt": "2026-09-11T17:28:26.542Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "gltf-transform",
+      "argsPrefix": [
+        "inspect"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect GLB metadata without modification",
+      "id": "6994c1bb-9760-4d16-8c12-45d972971418",
+      "enabled": true,
+      "createdAt": "2026-09-11T17:28:26.542Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "ffprobe",
+      "argsPrefix": [
+        "-v",
+        "error"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect media/container metadata without modification",
+      "id": "a4510036-2512-44f2-8c74-09b02d2115ec",
+      "enabled": true,
+      "createdAt": "2026-09-11T17:28:26.542Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "blender",
+      "argsPrefix": [
+        "--background",
+        "--factory-startup"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run local Blender inspection diagnostics",
+      "id": "52362949-8440-437b-b840-d3050503b1d6",
+      "enabled": true,
+      "createdAt": "2026-09-11T17:38:46.268Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "node",
+      "argsPrefix": [
+        "-"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run inline Node.js inspection scripts",
+      "id": "96a5d978-2cf8-4a37-9790-86efc5bf8106",
+      "enabled": true,
+      "createdAt": "2026-09-11T18:33:36.474Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "base64",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Encode or decode bounded script data for remote execution",
+      "id": "de5242b9-bf38-4f9e-852d-6f1695f8a4c6",
+      "enabled": true,
+      "createdAt": "2026-09-11T20:44:12.300Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "test",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Perform read-only validation checks",
+      "id": "71da844b-1bca-4a19-adb4-550acbac355c",
+      "enabled": true,
+      "createdAt": "2026-09-12T00:25:06.612Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "jq",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Read and validate JSON metadata",
+      "id": "71bd82cc-6556-4aa9-8589-915f39400448",
+      "enabled": true,
+      "createdAt": "2026-09-12T00:25:06.612Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "du",
+      "argsPrefix": [
+        "-sh"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect directory size without modification",
+      "id": "0732b213-99df-4b10-a708-376873bcc926",
+      "enabled": true,
+      "createdAt": "2026-09-12T00:25:06.612Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "python",
+      "argsPrefix": [
+        "-m",
+        "py_compile"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run Python syntax checks without modifying source files",
+      "id": "13a1b8bc-9ee3-4059-8473-6b5553a37d60",
+      "enabled": true,
+      "createdAt": "2026-09-12T05:08:12.768Z"
+    },
+    {
+      "kind": "exact",
+      "value": "set -eu",
+      "rationale": "Enable fail-fast shell behavior",
+      "id": "8f86ce3d-77de-4da7-9ef7-8093608663c5",
+      "enabled": true,
+      "createdAt": "2026-09-14T01:34:59.993Z"
+    },
+    {
+      "kind": "structured",
       "executable": "du",
       "argsPrefix": [],
       "allowAdditionalArgs": true,
@@ -3180,6 +3343,41 @@
       "id": "681eba8b-6f2f-4a99-93f3-cbaa656eca9b",
       "enabled": true,
       "createdAt": "2026-09-16T01:24:33.491Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "mv",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Move files without recursive deletion",
+      "id": "a6f32566-c855-47d0-9252-ac040290d758",
+      "enabled": true,
+      "createdAt": "2026-09-14T03:37:52.452Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^(start|offset|end)=.*$",
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "rationale": "Allow harmless timing and range variable assignments",
+      "id": "e260f85a-d410-4a93-af30-c4e64aa0500c",
+      "enabled": true,
+      "createdAt": "2026-09-14T14:05:43.195Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "node",
+      "argsPrefix": [
+        "--experimental-strip-types",
+        "--input-type=module"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Run local Node.js validation scripts with TypeScript stripping",
+      "id": "85a78f90-0b84-425a-9ae0-7d8667c9d6ad",
+      "enabled": true,
+      "createdAt": "2026-09-14T15:12:15.427Z"
     }
   ]
 }

@@ -18,6 +18,8 @@ const ACTIONS = [
 
 const SECTIONS = ["summary", "checks", "comments", "threads", "all"] as const;
 const TERMINAL_CHECK_STATES = new Set(["COMPLETED", "SUCCESS", "FAILURE", "ERROR", "CANCELLED", "SKIPPED", "NEUTRAL", "STALE", "TIMED_OUT", "ACTION_REQUIRED"]);
+const DEFAULT_BOTS = ["coderabbitai"];
+// Macroscope is paused because it does not return results: "macroscopeapp",
 
 type JsonObject = Record<string, unknown>;
 type RepoParts = { owner: string; name: string; nameWithOwner: string };
@@ -48,7 +50,7 @@ const parameters = Type.Object({
     pr: Type.Integer({ minimum: 1, description: "Pull request number" }),
     repo: Type.Optional(Type.String({ description: "owner/repo; defaults to the current checkout" })),
     sections: Type.Optional(Type.Array(StringEnum(SECTIONS), { description: "Inspect sections; defaults to summary and checks" })),
-    botLogins: Type.Optional(Type.Array(Type.String(), { description: "Only return signals/comments from these bots, such as coderabbitai or macroscopeapp" })),
+    botLogins: Type.Optional(Type.Array(Type.String(), { description: "Only return signals/comments from these bots, such as coderabbitai" })),
     commentIds: Type.Optional(Type.Array(Type.Integer({ minimum: 1 }), { description: "Only return these REST comment database IDs" })),
     threadIds: Type.Optional(Type.Array(Type.String(), { description: "Only return or resolve these GraphQL review thread IDs" })),
     unresolvedOnly: Type.Optional(Type.Boolean({ description: "Only return unresolved review threads" })),
@@ -287,7 +289,7 @@ async function inspect(pi: ExtensionAPI, cwd: string, repo: RepoParts, params: T
 async function poll(pi: ExtensionAPI, cwd: string, repo: RepoParts, params: ToolParams, signal?: AbortSignal): Promise<JsonObject> {
     const intervalMs = (params.intervalSeconds ?? 60) * 1000;
     const deadline = Date.now() + (params.timeoutMinutes ?? 15) * 60_000;
-    const bots = params.botLogins ?? ["coderabbitai", "macroscopeapp"];
+    const bots = params.botLogins ?? DEFAULT_BOTS;
     let attempts = 0;
     while (true) {
         signal?.throwIfAborted();

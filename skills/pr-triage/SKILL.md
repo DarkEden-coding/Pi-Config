@@ -1,6 +1,6 @@
 ---
 name: pr-triage
-description: Creates ready-for-review GitHub pull requests from completed local changes, or updates and triages a linked PR through CI, Macroscope, and CodeRabbit feedback. Use when asked to publish changes, handle an existing PR, wait for review bots, verify findings, apply justified fixes, and resolve review threads.
+description: Creates ready-for-review GitHub pull requests from completed local changes, or updates and triages a linked PR through CI and CodeRabbit feedback. Use when asked to publish changes, handle an existing PR, wait for review bots, verify findings, apply justified fixes, and resolve review threads.
 compatibility: Requires a Git repository, git, and an authenticated GitHub CLI (`gh`).
 ---
 
@@ -33,7 +33,7 @@ Before drafting PR titles, PR descriptions, commit messages, review replies, app
 Record the PR head SHA. Poll GitHub with `gh` every 60 seconds for up to 15 minutes. Feedback is ready only when:
 
 - every GitHub check for that head SHA is terminal; and
-- both Macroscope and CodeRabbit have a review or check result for that head SHA.
+- CodeRabbit has a review or check result for that head SHA.
 
 A successful bot result with no comments means no findings. A rate-limited CodeRabbit result is terminal; report the limitation. If 15 minutes expires, ask whether to wait another 15 minutes.
 
