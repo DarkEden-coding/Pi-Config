@@ -2728,6 +2728,110 @@
       "id": "85a78f90-0b84-425a-9ae0-7d8667c9d6ad",
       "enabled": true,
       "createdAt": "2026-09-14T15:12:15.427Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "time",
+      "argsPrefix": [
+        "-lp",
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "benchmarks",
+        "run"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Measure non-destructive benchmark execution",
+      "id": "d75e0abe-fbc8-4e60-ad5f-3bc47533cb29",
+      "enabled": true,
+      "createdAt": "2026-09-14T23:27:37.692Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "ffmpeg",
+      "argsPrefix": [
+        "-nostdin"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [
+        "^-f$",
+        "^/dev/",
+        "^/dev/null$"
+      ],
+      "rationale": "Convert local media files without destructive system operations",
+      "id": "effeb0eb-4307-4b3d-9439-e1f007f7fe62",
+      "enabled": true,
+      "createdAt": "2026-09-15T00:43:10.049Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "git",
+      "argsPrefix": [
+        "config",
+        "--get"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Inspect Git configuration values",
+      "id": "697c310f-8cc6-4f3b-a3c7-aa6f6374191d",
+      "enabled": true,
+      "createdAt": "2026-09-17T17:40:44.836Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^git -C [^;&|]+ status(?: .*)?$",
+      "rationale": "Inspect Git status in a specified repository",
+      "id": "79a9fd4c-6246-4530-9691-0937454dbfd9",
+      "enabled": true,
+      "createdAt": "2026-09-17T17:40:55.793Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^git -C [^;&|]+ remote(?: .*)?$",
+      "rationale": "Inspect repository remotes",
+      "id": "0bf61d96-ab24-4173-8e5b-d6ca6d3b09fc",
+      "enabled": true,
+      "createdAt": "2026-09-17T17:40:55.793Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^git -C [^;&|]+ log(?: .*)?$",
+      "rationale": "Inspect repository history",
+      "id": "d595b2a4-ec63-4fa1-ac8f-1a70e39e27cd",
+      "enabled": true,
+      "createdAt": "2026-09-17T17:40:55.793Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^git -C [^;&|]+ config --get .+$",
+      "rationale": "Inspect Git configuration values",
+      "id": "970f7bde-a024-41f6-8cd2-9a7646151c9e",
+      "enabled": true,
+      "createdAt": "2026-09-17T17:40:55.793Z"
+    },
+    {
+      "kind": "structured",
+      "executable": "xargs",
+      "argsPrefix": [
+        "-0",
+        "wc"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "rationale": "Count lines from null-delimited file paths",
+      "id": "7488dc51-a60c-4ad7-bd1d-8ca2dd995837",
+      "enabled": true,
+      "createdAt": "2026-09-17T18:14:53.319Z"
+    },
+    {
+      "kind": "regex",
+      "value": "^git -C [^;&|]+ diff(?: .*)?$",
+      "rationale": "Inspect Git diffs in a specified repository",
+      "id": "e2d06378-c0d0-46cd-a9c4-cf8ccc291ee6",
+      "enabled": true,
+      "createdAt": "2026-09-17T18:33:00.665Z"
     }
   ]
 }

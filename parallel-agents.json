@@ -17,8 +17,8 @@
   ],
   "models": [
     {
-      "name": "gpt-5.6-sol",
-      "model": "gpt-5.6-sol",
+      "name": "gpt-6-sol",
+      "model": "gpt-6-sol",
       "description": "Flagship choice for difficult multi-file engineering, deep reasoning, long-horizon implementation, testing, and demanding review work.",
       "enabled": true,
       "backend": "pi",
@@ -33,36 +33,20 @@
       "provider": "openai-codex"
     },
     {
-      "name": "gpt-5.6-luna",
-      "model": "gpt-5.6-luna",
+      "name": "gpt-6-luna",
+      "model": "gpt-6-luna",
       "description": "Fast choice for well-defined lightweight work such as summaries, code explanations, log analysis, review prechecks, and small routine changes.",
       "enabled": true,
       "backend": "pi",
       "provider": "openai-codex"
     },
     {
-      "name": "grok-4.6:slow",
-      "model": "grok-4.6:slow",
-      "description": "This model is a good implementation model for well-structured tasks and is also pretty good at organizing larger tasks for subagents. However, it does not make the best code for more arbitrary tasks.",
-      "enabled": true,
+      "name": "gpt-6-astra",
       "backend": "pi",
-      "provider": "cursor"
-    },
-    {
-      "name": "z-ai/glm-5.3-flash",
-      "model": "z-ai/glm-5.3-flash",
-      "description": "This model is good at implementation and has very good behavior. It is not a smart model, so it shouldn't be used for arbitrary tasks, but for well-structured tasks, it is very fast and very efficient. Mainly prioritize GPT models. However, if the user asks, feel free to use this for implementation.",
-      "enabled": true,
-      "backend": "pi",
-      "provider": "openrouter"
-    },
-    {
-      "name": "@cf/zai-org/glm-5.3-flash",
-      "model": "@cf/zai-org/glm-5.3-flash",
-      "description": "Same as above, use this one first, switch to other if limits are hit",
-      "enabled": true,
-      "backend": "pi",
-      "provider": "cloudflare-workers-ai"
+      "provider": "openai-codex",
+      "model": "gpt-6-astra",
+      "description": "Best model, very good at planning, 3d spacial understanding, and computer use, use only when user directs",
+      "enabled": true
     }
   ]
 }
