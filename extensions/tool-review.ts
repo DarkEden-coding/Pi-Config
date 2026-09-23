@@ -330,11 +330,31 @@ function latestUserMessage(ctx: ExtensionContext): string {
 	return "";
 }
 
-/** Parses and validates reviewer JSON output. */
+/** Parses and validates reviewer JSON output, allowing surrounding prose without swallowing other braces. */
 function parseDecision(text: string): ReviewDecision {
-	const match = text.match(/\{[\s\S]*\}/);
-	if (!match) throw new Error("Reviewer returned no JSON object");
-	const value = JSON.parse(match[0]) as Partial<ReviewDecision>;
+	let start = -1;
+	let depth = 0;
+	let end = -1;
+	let inString = false;
+	let escaped = false;
+	for (let index = 0; index < text.length; index++) {
+		const char = text[index]!;
+		if (start < 0) {
+			if (char === "{") { start = index; depth = 1; }
+			continue;
+		}
+		if (inString) {
+			if (escaped) escaped = false;
+			else if (char === "\\") escaped = true;
+			else if (char === '"') inString = false;
+			continue;
+		}
+		if (char === '"') inString = true;
+		else if (char === "{") depth++;
+		else if (char === "}" && --depth === 0) { end = index; break; }
+	}
+	if (start < 0 || end < 0) throw new Error("Reviewer returned no JSON object");
+	const value = JSON.parse(text.slice(start, end + 1)) as Partial<ReviewDecision>;
 	if ((value.decision !== "approve" && value.decision !== "escalate") || typeof value.summary !== "string" ||
 		typeof value.reason !== "string" || !Array.isArray(value.rules)) throw new Error("Reviewer returned invalid JSON");
 	return { ...value, rules: value.rules.filter(isProposedRule) } as ReviewDecision;
