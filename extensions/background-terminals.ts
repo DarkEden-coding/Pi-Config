@@ -1,4 +1,4 @@
-import { createWriteStream, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -147,6 +147,16 @@ export default function backgroundTerminalsExtension(pi: ExtensionAPI): void {
 	const terminals = new Map<string, BackgroundTerminal>();
 	let nextId = 1;
 	let updateIndicator: (() => void) | undefined;
+	const logDirectory = join(tmpdir(), `pi-background-terminals-${process.pid}`);
+
+	/** Publishes terminal metadata for Swath without exposing terminal output to model context. */
+	function publishTerminals(): void {
+		mkdirSync(logDirectory, { recursive: true });
+		const manifest = join(logDirectory, "terminals.json");
+		const pending = `${manifest}.pending`;
+		writeFileSync(pending, JSON.stringify([...terminals.values()].map(({ id, command, status }) => ({ id, command, status }))));
+		renameSync(pending, manifest);
+	}
 
 	/** Stops one terminal and waits briefly for its process tree to exit. */
 	async function stopTerminal(terminal: BackgroundTerminal): Promise<void> {
@@ -165,7 +175,6 @@ export default function backgroundTerminalsExtension(pi: ExtensionAPI): void {
 		const command = buildCommand(params);
 		const cwd = params.cwd ?? defaultCwd;
 		const id = `term-${nextId++}`;
-		const logDirectory = join(tmpdir(), `pi-background-terminals-${process.pid}`);
 		mkdirSync(logDirectory, { recursive: true });
 		const logPath = join(logDirectory, `${id}.log`);
 		const log = createWriteStream(logPath, { flags: "w" });
@@ -355,6 +364,7 @@ export default function backgroundTerminalsExtension(pi: ExtensionAPI): void {
 
 	pi.on("session_start", (_event, ctx) => {
 		updateIndicator = () => {
+			publishTerminals();
 			const count = [...terminals.values()].filter((terminal) => terminal.status === "running").length;
 			const dots = count > 0 ? `${"●".repeat(Math.min(count, 8))}${count > 8 ? "+" : ""} ` : "";
 			const color = count > 0 ? "accent" : "dim";
