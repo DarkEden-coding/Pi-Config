@@ -14,7 +14,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
-import { loadToolReviewConfig, terminalToolReviewExtension } from "./tool-review.ts";
+import { createTerminalToolReviewExtension, loadToolReviewConfig } from "./tool-review.ts";
+import { AgentApprovalQueue } from "./lib/parallel-agent-approvals.ts";
 import { AgentActivityLog } from "./lib/parallel-agent-activity.ts";
 import { AgentSteeringController, MAX_STEERING_MESSAGE_CHARS } from "./lib/parallel-agent-steering.ts";
 
@@ -66,7 +67,7 @@ const PARALLEL_AGENTS_SCHEMA = Type.Object({
 
 const PARALLEL_AGENTS_CONTROL_SCHEMA = Type.Object({
 	action: Type.String({
-		description: "One of: status, wait, read_actions (compact tool activity), read_action_details (explicit argument/result detail), read_results, steer (queue a correction for named agents), or cancel.",
+		description: "One of: status, pending_approvals, approve, deny, wait, read_actions, read_action_details, read_results, steer, or cancel.",
 	}),
 	runId: Type.String({ description: "Run ID returned from a non-blocking parallel_agents call." }),
 	agents: Type.Optional(Type.Array(Type.String(), {
@@ -93,6 +94,7 @@ const PARALLEL_AGENTS_CONTROL_SCHEMA = Type.Object({
 		end: Type.Integer({ minimum: 0 }),
 	}, { description: "For read_action_details: inclusive character range within retained detail; each response is capped at 4,000 characters." })),
 	message: Type.Optional(Type.String({ minLength: 1, maxLength: MAX_STEERING_MESSAGE_CHARS, description: "For steer: a literal correction. Queued for the next turn boundary, not an interrupt or proof of compliance." })),
+	approvalId: Type.Optional(Type.String({ description: "For approve or deny: ID from pending_approvals, status, or the initial parallel_agents result." })),
 	timeoutSeconds: Type.Optional(Type.Number({
 		description: "For wait on a non-blocking run: maximum time to wait without cancelling the sub-agents. Omit to wait until completion.",
 		exclusiveMinimum: 0,
@@ -122,6 +124,7 @@ type ParallelAgentRun = {
 	tasks: SubAgentTask[];
 	stats: AgentRunStats[];
 	activity: AgentActivityLog;
+	approvals: AgentApprovalQueue;
 	controllers: Array<AgentSteeringController | undefined>;
 	results?: Array<{ ok: boolean; name: string; output: string }>;
 	completion: Promise<Array<{ ok: boolean; name: string; output: string }>>;
@@ -275,6 +278,7 @@ async function runPiSubAgent(
 	onStatsChange: () => void,
 	onControllerReady: (controller: AgentSteeringController) => void,
 	activity: AgentActivityLog,
+	approvals: AgentApprovalQueue,
 ): Promise<{ ok: boolean; name: string; output: string }> {
 	// Use the live context model registry instead of creating a fresh one.
 	// Provider/model registrations from extensions
@@ -318,9 +322,15 @@ async function runPiSubAgent(
 		agentDir: getAgentDir(),
 		settingsManager,
 		noExtensions: config.allowedExtensionTools.length === 0,
-		extensionFactories: config.allowedExtensionTools.length === 0
-			? [{ name: "terminal-tool-review", factory: terminalToolReviewExtension }]
-			: [],
+		extensionFactories: [{ name: "terminal-tool-review", factory: createTerminalToolReviewExtension((review) => {
+			activity.record(stats.name, "approval_requested", `${review.toolName}: ${review.reason}`);
+			onStatsChange();
+			return approvals.request(stats.name, review);
+		}) }],
+		extensionsOverride: (loaded) => ({
+			...loaded,
+			extensions: loaded.extensions.filter((extension) => !extension.path.endsWith("/tool-review.ts")),
+		}),
 		noSkills: true,
 		noPromptTemplates: true,
 		noThemes: true,
@@ -435,8 +445,10 @@ async function waitForRun(
 	run: ParallelAgentRun,
 	timeoutSeconds: number | undefined,
 	signal: AbortSignal | undefined,
-): Promise<"completed" | "timed_out" | "aborted"> {
+): Promise<"completed" | "timed_out" | "aborted" | "approval"> {
 	if (run.results) return "completed";
+	if (run.approvals.list().length) return "approval";
+	const request = run.approvals.waitForRequest();
 
 	let timeout: NodeJS.Timeout | undefined;
 	let abortHandler: (() => void) | undefined;
@@ -454,8 +466,9 @@ async function waitForRun(
 	});
 
 	try {
-		return await Promise.race([run.completion.then(() => "completed" as const), timeoutPromise, abortPromise]);
+		return await Promise.race([run.completion.then(() => "completed" as const), request.promise.then(() => "approval" as const), timeoutPromise, abortPromise]);
 	} finally {
+		request.cancel();
 		if (timeout) clearTimeout(timeout);
 		if (signal && abortHandler) signal.removeEventListener("abort", abortHandler);
 	}
@@ -508,7 +521,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 			"parallel_agents requires every task to specify a configured model and a low, medium, or high reasoning level.",
 			"For read-only parallel_agents tasks, explicitly state in the task prompt that the sub-agent must never edit files, mutate the repository, or perform other state-changing actions.",
 			"For parallel_agents tasks that may edit, assign non-overlapping files or directories to concurrent sub-agents.",
-			"Use parallel_agents blocking=false and unique task names to supervise work. Poll parallel_agents_control read_actions with after=nextCursor; steer named agents to correct direction. Steering is queued after current tools, not an emergency stop.",
+			"Use parallel_agents blocking=false and unique task names to supervise work. Poll status and pending_approvals; inspect the exact call and reviewer reason before approve or deny, then steer if needed. Poll read_actions with after=nextCursor for tool activity. Steering is queued after current tools, not an emergency stop.",
 		],
 		parameters: PARALLEL_AGENTS_SCHEMA,
 		async execute(_toolCallId, params: ParallelAgentsInput, _signal, onUpdate, ctx) {
@@ -569,12 +582,12 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 				}
 				renderStats();
 			};
-			const run: ParallelAgentRun = { id: runId, tasks: params.tasks, stats, activity: new AgentActivityLog(), controllers: [], completion: Promise.resolve([]) };
+			const run: ParallelAgentRun = { id: runId, tasks: params.tasks, stats, activity: new AgentActivityLog(), approvals: new AgentApprovalQueue(), controllers: [], completion: Promise.resolve([]) };
 			runs.set(runId, run);
 			const settled = Promise.allSettled(params.tasks.map((task, index) => runPiSubAgent(
 				task, selectedModels[index], config, ctx, stats[index], () => updateStatsAndCosts(index),
 				(controller) => { run.controllers[index] = controller; },
-				run.activity,
+				run.activity, run.approvals,
 			)));
 			run.completion = settled.then((items) => {
 				const results = items.map((item, index) => {
@@ -594,6 +607,11 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 				return results;
 			});
 			if (params.blocking === false) return { content: [{ type: "text", text: `Started ${params.tasks.length} background sub-agent(s). Run ID: ${runId}. Use parallel_agents_control to inspect, steer, wait, read actions, or cancel.` }], details: { runId } };
+			const first = await waitForRun(run, undefined, _signal);
+			if (first === "approval" && run.approvals.list().length) {
+				return { content: [{ type: "text", text: `Run ${runId} is waiting for approval. Use parallel_agents_control action pending_approvals to inspect the request, then approve or deny by approvalId. You can also steer the sub-agent.` }], details: { runId, pendingApprovals: run.approvals.list() } };
+			}
+			if (first === "aborted") return { content: [{ type: "text", text: `Wait cancelled; run ${runId} continues in the background.` }], details: { runId } };
 			const results = await run.completion;
 			return { content: [{ type: "text", text: formatResults(results) }], details: { runId } };
 		},
@@ -603,7 +621,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "parallel_agents_control",
 		label: "Parallel Agents Control",
-		description: "Supervise native Pi sub-agents: status, wait, read_actions, read_action_details, read_results, steer, cancel. read_actions returns compact tool metadata, no successful outputs or code bodies, capped at 20 events and 4,000 characters. Default: four newest events. Poll with after=nextCursor for changes, using the same agents filter; after=-1 starts at the beginning. read_action_details explicitly pages retained args/results by actionIndex and detailRegion. read_results pages reports with reportRegion. steer requires named agents and a message, queues at the next turn boundary, and records delivery separately from acceptance. Startup/completed agents reject steering. wait timeoutSeconds never cancels agents.",
+		description: "Supervise native Pi sub-agents: status, pending_approvals, approve, deny, wait, read_actions, read_action_details, read_results, steer, cancel. Inspect pending_approvals for the exact tool input and reviewer reason before approving or denying by approvalId. Approve only within the user's authorization; ask the user before severe irreversible actions. Denial blocks that call without aborting the child, so steer can correct it. read_actions returns compact metadata; read_action_details and read_results page longer output. wait returns when approval is needed instead of deadlocking. Steering is queued, not an interrupt.",
 		parameters: PARALLEL_AGENTS_CONTROL_SCHEMA,
 		renderCall(args, theme) {
 			const timeout = typeof args.timeoutSeconds === "number" ? ` · timeout ${args.timeoutSeconds}s` : "";
@@ -623,7 +641,19 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 			const indexes = params.agents?.length ? run.stats.flatMap((stat, index) => params.agents!.includes(stat.name) ? [index] : []) : run.stats.map((_stat, index) => index);
 			const unknown = params.agents?.filter((name) => !run.stats.some((stat) => stat.name === name)) ?? [];
 			if (unknown.length > 0) throw new Error(`Unknown task names: ${unknown.join(", ")}.`);
-			if (params.action === "status") return { content: [{ type: "text", text: indexes.map((index) => `${run.stats[index].name}: ${run.stats[index].status}; ${run.stats[index].actions} actions; ${run.controllers[index]?.pendingCount ?? 0} queued corrections`).join("\n") }], details: { runId: run.id } };
+			if (params.action === "status") return { content: [{ type: "text", text: indexes.map((index) => `${run.stats[index].name}: ${run.stats[index].status}; ${run.stats[index].actions} actions; ${run.controllers[index]?.pendingCount ?? 0} queued corrections; ${run.approvals.list().filter((review) => review.agent === run.stats[index].name).map((review) => review.id).join(", ") || "no pending approvals"}`).join("\n") }], details: { runId: run.id } };
+			if (params.action === "pending_approvals") {
+				const requests = run.approvals.list().filter((review) => indexes.some((index) => run.stats[index].name === review.agent));
+				return { content: [{ type: "text", text: requests.length ? requests.map((review) => `${review.id} · ${review.agent} · ${review.toolName}\nReason: ${review.reason}\nInput: ${JSON.stringify(review.input)}`).join("\n\n") : "No pending approvals." }], details: { runId: run.id, pendingApprovals: requests } };
+			}
+			if (params.action === "approve" || params.action === "deny") {
+				if (!params.approvalId) throw new Error(`${params.action} requires approvalId.`);
+				const request = run.approvals.list().find((review) => review.id === params.approvalId);
+				if (!request || !indexes.some((index) => run.stats[index].name === request.agent)) throw new Error(`No pending approval ${params.approvalId} for the selected agents.`);
+				run.approvals.decide(request.id, params.action === "approve");
+				run.activity.record(request.agent, params.action === "approve" ? "approved" : "denied", `${request.id} · ${request.toolName}`);
+				return { content: [{ type: "text", text: `${request.id}: ${params.action === "approve" ? "allowed once" : "denied"}. ${request.agent} will continue; steer it if a correction is needed.` }], details: { runId: run.id } };
+			}
 			if (params.action === "steer") {
 				if (!params.agents?.length || !params.message) throw new Error("steer requires explicit agents and a nonempty message.");
 				const controllers = indexes.map((index) => {
@@ -643,7 +673,10 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 				};
 			}
 			if (params.action === "wait") {
-				const outcome = await waitForRun(run, params.timeoutSeconds, signal);
+				if (run.approvals.list().length) throw new Error("Run is waiting for approval. Use pending_approvals, then approve or deny before waiting.");
+				let outcome = await waitForRun(run, params.timeoutSeconds, signal);
+				while (outcome === "approval" && !run.approvals.list().length) outcome = await waitForRun(run, params.timeoutSeconds, signal);
+				if (outcome === "approval") return { content: [{ type: "text", text: `Run ${run.id} is waiting for approval. Use pending_approvals to inspect it.` }], details: { runId: run.id, pendingApprovals: run.approvals.list() } };
 				if (outcome === "timed_out") {
 					return { content: [{ type: "text", text: `Wait timed out; background sub-agents are still running.\n\n${indexes.map((index) => `${run.stats[index].name}: ${run.stats[index].status}`).join("\n")}` }], details: { runId: run.id, waitTimedOut: true } };
 				}
@@ -676,6 +709,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 				return { content: [{ type: "text", text: page.text }], details: { runId: run.id } };
 			}
 			if (params.action === "cancel") {
+				for (const review of run.approvals.list()) if (indexes.some((index) => run.stats[index].name === review.agent)) run.approvals.decide(review.id, false);
 				await Promise.all(indexes.map(async (index) => {
 					if (run.stats[index].status !== "active") return;
 					run.stats[index].status = "cancelled";
@@ -684,7 +718,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 				}));
 				return { content: [{ type: "text", text: `Cancellation requested for ${indexes.map((index) => run.stats[index].name).join(", ")}.` }], details: { runId: run.id } };
 			}
-			throw new Error("action must be status, wait, read_actions, read_action_details, read_results, steer, or cancel.");
+			throw new Error("action must be status, pending_approvals, approve, deny, wait, read_actions, read_action_details, read_results, steer, or cancel.");
 		},
 	});
 
@@ -753,6 +787,7 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 	pi.on("session_shutdown", async (_event, ctx) => {
 		for (const key of progressWidgetKeys) ctx.ui.setWidget(key, undefined);
 		progressWidgetKeys.clear();
+		for (const run of runs.values()) run.approvals.denyAll();
 		await Promise.all([...runs.values()].map((run) => Promise.all(run.stats.map(async (stat, index) => {
 			if (stat.status !== "active") return;
 			// Include starting agents whose controllers have not been constructed yet.

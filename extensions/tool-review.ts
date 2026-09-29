@@ -30,7 +30,7 @@ Create reusable GLOBAL allow rules for every safe, low-priority part of an appro
 Understand rule application: the shell call is split at unquoted operators into command segments and features. Every segment must match at least one enabled rule, and every feature (pipe, and, or, sequence, redirect) must separately match a feature rule; otherwise the entire call is reviewed again. Rules do not match across operators. For a compound call, return multiple rules when needed: one efficient reusable rule for each uncovered safe segment plus each uncovered safe feature. Do not create one exact or prefix rule containing the whole compound command. Paths before an executable are ignored by structured matching, so ./node_modules/.bin/prettier should use executable prettier. Existing rules need not be repeated. Pipe and and are safe features because every joined segment still requires its own rule.
 Never create rules that permit destructive behavior or downloaded-code execution. Prefer structured rules; keep them broad enough to be reusable but narrow enough not to cover the severe cases above. Never create rules for project-specific paths, one-off exceptions, task-specific literals, shell launchers, or command substitution. Return no rules only when the approval is genuinely specific to this one call or existing rules already cover every segment and feature.
 Return JSON only:
-{"decision":"approve"|"escalate","rules":[rule,...]}
+{"decision":"approve"|"escalate","reason":"short explanation","rules":[rule,...]}
 Rule forms:
 {"kind":"exact"|"prefix","value":"command text","rationale":"short reason"}
 {"kind":"regex","value":"anchored regex for one command segment","rationale":"short reason"}
@@ -69,8 +69,18 @@ interface ParsedCommand {
 
 interface ReviewDecision {
 	decision: "approve" | "escalate";
+	reason?: string;
 	rules: Omit<ReviewRule, "id" | "enabled" | "createdAt">[];
 }
+
+export interface PendingToolReview {
+	toolName: string;
+	input: unknown;
+	reason: string;
+	signal?: AbortSignal;
+}
+
+export type ReviewApproval = (review: PendingToolReview) => Promise<boolean>;
 
 interface ReviewResult {
 	decision: ReviewDecision;
@@ -247,6 +257,7 @@ export function parseShellCommand(command: string): ParsedCommand {
 		if (char === "\\" && quote !== "'") { current += char; escaped = true; continue; }
 		if (quote) {
 			current += char;
+			if (quote === '"' && ((char === "$" && next === "(") || char === "`")) features.add("substitution");
 			if (char === quote) quote = undefined;
 			continue;
 		}
@@ -329,7 +340,7 @@ function latestUserMessage(ctx: ExtensionContext): string {
 }
 
 /** Parses and validates reviewer JSON output, allowing surrounding prose without swallowing other braces. */
-function parseDecision(text: string): ReviewDecision {
+export function parseDecision(text: string): ReviewDecision {
 	let start = -1;
 	let depth = 0;
 	let end = -1;
@@ -352,10 +363,13 @@ function parseDecision(text: string): ReviewDecision {
 		else if (char === "}" && --depth === 0) { end = index; break; }
 	}
 	if (start < 0 || end < 0) throw new Error("Reviewer returned no JSON object");
-	const value = JSON.parse(text.slice(start, end + 1)) as Partial<ReviewDecision>;
-	if (value.decision !== "approve" && value.decision !== "escalate") throw new Error("Reviewer returned invalid JSON");
+	const value = JSON.parse(text.slice(start, end + 1)) as { decision?: unknown; approved?: unknown; reason?: unknown; rules?: unknown };
+	const decision = value.decision === "escalate" || value.decision === "reject" || value.approved === false ? "escalate"
+		: value.decision === "approve" || value.approved === true ? "approve" : undefined;
+	if (!decision) throw new Error("Reviewer returned an invalid decision");
 	return {
-		decision: value.decision,
+		decision,
+		reason: typeof value.reason === "string" ? value.reason : undefined,
 		rules: Array.isArray(value.rules) ? value.rules.filter(isProposedRule) : [],
 	};
 }
@@ -545,7 +559,7 @@ function describeRule(rule: ReviewRule): string {
 }
 
 /** Publishes the latest review outcome to TUI and RPC clients. */
-function setReviewStatus(ctx: ExtensionContext, toolCallId: string, outcome: "rule-approved" | "auto-approved" | "auto-approved rule-created" | "user-approved" | "denied" | "reviewing"): void {
+function setReviewStatus(ctx: ExtensionContext, toolCallId: string, outcome: "rule-approved" | "auto-approved" | "auto-approved rule-created" | "user-approved" | "parent-approved" | "denied" | "reviewing"): void {
 	const color = outcome === "denied" ? "error" : outcome === "reviewing" ? "warning" : "success";
 	ctx.ui.setStatus(`tool-review:${toolCallId}`, ctx.ui.theme.fg(color, outcome));
 }
@@ -555,8 +569,9 @@ function formatReviewCost(cost: number): string {
 	return `review cost: $${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(3)}`;
 }
 
-/** Global and inline extension factory for terminal tool review. */
-export const terminalToolReviewExtension: ExtensionFactory = (pi) => {
+/** Creates a reviewer that delegates non-interactive escalations to its parent session. */
+export function createTerminalToolReviewExtension(approval?: ReviewApproval): ExtensionFactory {
+return (pi) => {
 	const pendingUsage = new Map<string, Usage>();
 	let reviewCost = 0;
 
@@ -615,18 +630,17 @@ export const terminalToolReviewExtension: ExtensionFactory = (pi) => {
 			setReviewStatus(ctx, event.toolCallId, learned.length ? "auto-approved rule-created" : "auto-approved");
 			return;
 		}
-		if (!ctx.hasUI) {
-			setReviewStatus(ctx, event.toolCallId, "denied");
-			return { block: true, reason: reviewError || "Review requires user approval" };
-		}
-		const choice = await ctx.ui.select(`Run the requested terminal action?\n\n${reviewError || "The reviewer requires your approval."}`, ["Allow once", "Deny"]);
-		if (choice === "Allow once") {
-			setReviewStatus(ctx, event.toolCallId, "user-approved");
+		const reason = reviewError || decision.reason || "The reviewer requires approval.";
+		const allowed = approval
+			? await approval({ toolName: event.toolName, input: event.input, reason, signal: ctx.signal })
+			: ctx.hasUI && await ctx.ui.select(`Run the requested terminal action?\n\n${reason}`, ["Allow once", "Deny"]) === "Allow once";
+		if (allowed) {
+			setReviewStatus(ctx, event.toolCallId, approval ? "parent-approved" : "user-approved");
 			return;
 		}
 		setReviewStatus(ctx, event.toolCallId, "denied");
-		ctx.abort();
-		return { block: true, reason: `Denied by user${reviewError ? `: ${reviewError}` : ""}` };
+		if (!approval && ctx.hasUI) ctx.abort();
+		return { block: true, reason: approval ? `Denied by parent agent: ${reason}` : ctx.hasUI ? `Denied by user: ${reason}` : `Review requires approval: ${reason}` };
 	});
 
 	pi.on("tool_result", (event) => {
@@ -639,5 +653,8 @@ export const terminalToolReviewExtension: ExtensionFactory = (pi) => {
 		};
 	});
 };
+}
+
+export const terminalToolReviewExtension = createTerminalToolReviewExtension();
 
 export default terminalToolReviewExtension;
