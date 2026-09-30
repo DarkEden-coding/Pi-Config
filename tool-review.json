@@ -3482,6 +3482,20 @@
       "id": "e2d06378-c0d0-46cd-a9c4-cf8ccc291ee6",
       "enabled": true,
       "createdAt": "2026-09-17T18:33:00.665Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Allow read-only UTC timestamp queries.",
+      "value": null,
+      "executable": "date",
+      "argsPrefix": [
+        "-u"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "692d0aff-a88a-4dd6-9d30-6fcf21ccc888",
+      "enabled": true,
+      "createdAt": "2026-09-29T20:50:17.613Z"
     }
   ]
 }
