@@ -1,7 +1,7 @@
 /** The native Pi session operations used to deliver parent corrections. */
 export interface SteeringSession {
 	readonly isStreaming: boolean;
-	steer(text: string): Promise<void>;
+	steer(text: string): Promise<unknown>;
 	abort(): Promise<void>;
 }
 

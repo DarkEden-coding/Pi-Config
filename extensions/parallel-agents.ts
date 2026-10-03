@@ -1,4 +1,18 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import {
+	AgentSupervisionQueue,
+	saveAgentRun,
+	loadAgentRun,
+	recoveredStatus,
+	codingPreferences,
+} from "./lib/parallel-agent-workflow.ts";
+import {
+	appendFileSync,
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import {
 	createAgentSession,
@@ -14,10 +28,16 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type, type Static } from "typebox";
-import { createTerminalToolReviewExtension, loadToolReviewConfig } from "./tool-review.ts";
+import {
+	createTerminalToolReviewExtension,
+	loadToolReviewConfig,
+} from "./tool-review.ts";
 import { AgentApprovalQueue } from "./lib/parallel-agent-approvals.ts";
 import { AgentActivityLog } from "./lib/parallel-agent-activity.ts";
-import { AgentSteeringController, MAX_STEERING_MESSAGE_CHARS } from "./lib/parallel-agent-steering.ts";
+import {
+	AgentSteeringController,
+	MAX_STEERING_MESSAGE_CHARS,
+} from "./lib/parallel-agent-steering.ts";
 
 type ThinkingLevel = "low" | "medium" | "high";
 
@@ -45,11 +65,23 @@ const DEFAULT_CONFIG: ParallelAgentsConfig = {
 };
 
 const TASK_SCHEMA = Type.Object({
-	name: Type.Optional(Type.String({ minLength: 1, maxLength: 120, description: "Unique task name within this run. Defaults to the configured model name; name tasks explicitly when reusing a model." })),
-	model: Type.String({ description: "Configured model name from ~/.pi/agent/parallel-agents.json." }),
-	reasoningLevel: Type.Union([Type.Literal("low"), Type.Literal("medium"), Type.Literal("high")], {
-		description: "Required reasoning level for this sub-agent run.",
+	name: Type.Optional(
+		Type.String({
+			minLength: 1,
+			maxLength: 120,
+			description:
+				"Unique task name within this run. Defaults to the configured model name; name tasks explicitly when reusing a model.",
+		}),
+	),
+	model: Type.String({
+		description: "Configured model name from ~/.pi/agent/parallel-agents.json.",
 	}),
+	reasoningLevel: Type.Union(
+		[Type.Literal("low"), Type.Literal("medium"), Type.Literal("high")],
+		{
+			description: "Required reasoning level for this sub-agent run.",
+		},
+	),
 	prompt: Type.String({
 		description:
 			"Detailed architectural prompt for the sub-agent. Include objective, files to inspect/touch, constraints, and expected final answer. For read-only work, explicitly tell the sub-agent never to edit files, mutate the repository, or perform other state-changing actions.",
@@ -58,54 +90,137 @@ const TASK_SCHEMA = Type.Object({
 
 const PARALLEL_AGENTS_SCHEMA = Type.Object({
 	tasks: Type.Array(TASK_SCHEMA, {
-		description: "Sub-agent tasks to run concurrently. Assign non-overlapping files for editing tasks.",
+		description:
+			"Sub-agent tasks to run concurrently. Assign non-overlapping files for editing tasks.",
 	}),
-	blocking: Type.Optional(Type.Boolean({
-		description: "Whether to wait for all sub-agents before returning. Defaults to true. Set false to continue working and use parallel_agents_control with the returned runId to inspect, steer, wait for, or cancel the run.",
-	})),
+	blocking: Type.Optional(
+		Type.Boolean({
+			description:
+				"Whether to wait for all sub-agents before returning. Defaults to true. Set false to continue working and use parallel_agents_control with the returned runId to inspect, steer, wait for, or cancel the run.",
+		}),
+	),
 });
 
 const PARALLEL_AGENTS_CONTROL_SCHEMA = Type.Object({
 	action: Type.String({
-		description: "One of: status, pending_approvals, approve, deny, wait, read_actions, read_action_details, read_results, steer, or cancel.",
+		description:
+			"One of: resume (interrupted agents and message required), status, pending_approvals, approve, deny, wait, read_actions, read_action_details, read_results, steer, or cancel.",
 	}),
-	runId: Type.String({ description: "Run ID returned from a non-blocking parallel_agents call." }),
-	agents: Type.Optional(Type.Array(Type.String(), {
-		description: "Task names to select. Required and nonempty for steer; otherwise omit for all. Unknown names are errors. Wait always waits for the complete run.",
-	})),
-	readRegion: Type.Optional(Type.Object({
-		start: Type.Integer({ minimum: 0, description: "First recorded action index to include (inclusive)." }),
-		end: Type.Integer({ minimum: 0, description: "Last recorded action index to include (inclusive)." }),
-	}, {
-		description: "For read_actions: inclusive activity change indexes. Responses remain bounded. Omit after and readRegion for the four newest events; tool starts/ends in the page are combined.",
-	})),
-	reportRegion: Type.Optional(Type.Object({
-		start: Type.Integer({ minimum: 0, description: "First report character offset to include (inclusive)." }),
-		end: Type.Integer({ minimum: 0, description: "Last report character offset to include (inclusive)." }),
-	}, {
-		description: "For read_results: an explicit inclusive character range from each selected sub-agent report. Each call returns at most 4,000 characters per report; make another call for later text.",
-	})),
-	after: Type.Optional(Type.Integer({ minimum: -1, description: "For read_actions: return changes after this cursor, oldest first. Start with -1; reuse nextCursor with the same agents filter. Tool completion receives a new index." })),
-	limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 20, description: "For read_actions: maximum events scanned, up to 20 and a 4,000-character total response budget." })),
-	offset: Type.Optional(Type.Integer({ minimum: 0, description: "Deprecated: offset in filtered activity events. Prefer after for incremental reads." })),
-	actionIndex: Type.Optional(Type.Integer({ minimum: 0, description: "For read_action_details: activity index from the compact feed. Details retain at most 64,000 characters per event." })),
-	detailRegion: Type.Optional(Type.Object({
-		start: Type.Integer({ minimum: 0 }),
-		end: Type.Integer({ minimum: 0 }),
-	}, { description: "For read_action_details: inclusive character range within retained detail; each response is capped at 4,000 characters." })),
-	message: Type.Optional(Type.String({ minLength: 1, maxLength: MAX_STEERING_MESSAGE_CHARS, description: "For steer: a literal correction. Queued for the next turn boundary, not an interrupt or proof of compliance." })),
-	approvalId: Type.Optional(Type.String({ description: "For approve or deny: ID from pending_approvals, status, or the initial parallel_agents result." })),
-	timeoutSeconds: Type.Optional(Type.Number({
-		description: "For wait on a non-blocking run: maximum time to wait without cancelling the sub-agents. Omit to wait until completion.",
-		exclusiveMinimum: 0,
-	})),
+	runId: Type.String({
+		description: "Run ID returned from a non-blocking parallel_agents call.",
+	}),
+	agents: Type.Optional(
+		Type.Array(Type.String(), {
+			description:
+				"Task names to select. Required and nonempty for steer; otherwise omit for all. Unknown names are errors. Wait always waits for the complete run.",
+		}),
+	),
+	readRegion: Type.Optional(
+		Type.Object(
+			{
+				start: Type.Integer({
+					minimum: 0,
+					description: "First recorded action index to include (inclusive).",
+				}),
+				end: Type.Integer({
+					minimum: 0,
+					description: "Last recorded action index to include (inclusive).",
+				}),
+			},
+			{
+				description:
+					"For read_actions: inclusive activity change indexes. Responses remain bounded. Omit after and readRegion for the four newest events; tool starts/ends in the page are combined.",
+			},
+		),
+	),
+	reportRegion: Type.Optional(
+		Type.Object(
+			{
+				start: Type.Integer({
+					minimum: 0,
+					description: "First report character offset to include (inclusive).",
+				}),
+				end: Type.Integer({
+					minimum: 0,
+					description: "Last report character offset to include (inclusive).",
+				}),
+			},
+			{
+				description:
+					"For read_results: an explicit inclusive character range from each selected sub-agent report. Each call returns at most 4,000 characters per report; make another call for later text.",
+			},
+		),
+	),
+	after: Type.Optional(
+		Type.Integer({
+			minimum: -1,
+			description:
+				"For read_actions: return changes after this cursor, oldest first. Start with -1; reuse nextCursor with the same agents filter. Tool completion receives a new index.",
+		}),
+	),
+	limit: Type.Optional(
+		Type.Integer({
+			minimum: 1,
+			maximum: 20,
+			description:
+				"For read_actions: maximum events scanned, up to 20 and a 4,000-character total response budget.",
+		}),
+	),
+	offset: Type.Optional(
+		Type.Integer({
+			minimum: 0,
+			description:
+				"Deprecated: offset in filtered activity events. Prefer after for incremental reads.",
+		}),
+	),
+	actionIndex: Type.Optional(
+		Type.Integer({
+			minimum: 0,
+			description:
+				"For read_action_details: activity index from the compact feed. Details retain at most 64,000 characters per event.",
+		}),
+	),
+	detailRegion: Type.Optional(
+		Type.Object(
+			{
+				start: Type.Integer({ minimum: 0 }),
+				end: Type.Integer({ minimum: 0 }),
+			},
+			{
+				description:
+					"For read_action_details: inclusive character range within retained detail; each response is capped at 4,000 characters.",
+			},
+		),
+	),
+	message: Type.Optional(
+		Type.String({
+			minLength: 1,
+			maxLength: MAX_STEERING_MESSAGE_CHARS,
+			description:
+				"For steer: a literal correction. Queued for the next turn boundary, not an interrupt or proof of compliance.",
+		}),
+	),
+	approvalId: Type.Optional(
+		Type.String({
+			description:
+				"For approve or deny: ID from pending_approvals, status, or the initial parallel_agents result.",
+		}),
+	),
+	timeoutSeconds: Type.Optional(
+		Type.Number({
+			description:
+				"For wait on a non-blocking run: maximum time to wait without cancelling the sub-agents. Omit to wait until completion.",
+			exclusiveMinimum: 0,
+		}),
+	),
 });
 
 type ParallelAgentsInput = Static<typeof PARALLEL_AGENTS_SCHEMA>;
 type ParallelAgentsControlInput = Static<typeof PARALLEL_AGENTS_CONTROL_SCHEMA>;
 type SubAgentTask = Static<typeof TASK_SCHEMA>;
 
-type AgentRunStatus = "active" | "done" | "failed" | "cancelled";
+type AgentRunStatus =
+	"interrupted" | "active" | "done" | "failed" | "cancelled";
 
 type AgentRunStats = {
 	name: string;
@@ -119,6 +234,8 @@ type AgentRunStats = {
 	filesEdited: Set<string>;
 };
 
+type AgentResult = { ok: boolean; name: string; output: string };
+
 type ParallelAgentRun = {
 	id: string;
 	tasks: SubAgentTask[];
@@ -126,9 +243,29 @@ type ParallelAgentRun = {
 	activity: AgentActivityLog;
 	approvals: AgentApprovalQueue;
 	controllers: Array<AgentSteeringController | undefined>;
-	results?: Array<{ ok: boolean; name: string; output: string }>;
+	childFiles: Array<string | undefined>;
+	owner: string;
+	preferences: string;
+	results?: AgentResult[];
+	childPromises: Array<Promise<AgentResult> | undefined>;
 	completion: Promise<Array<{ ok: boolean; name: string; output: string }>>;
 };
+
+/** Waits across explicit resume batches, including children added while already waiting. */
+async function completeActiveChildren(
+	run: ParallelAgentRun,
+): Promise<AgentResult[]> {
+	for (;;) {
+		const children = [...run.childPromises];
+		await Promise.all(children);
+		if (
+			children.length === run.childPromises.length &&
+			children.every((child, index) => child === run.childPromises[index])
+		) {
+			return run.results ?? [];
+		}
+	}
+}
 
 /** Maps a sub-agent reasoning level to the active theme's matching color. */
 function getReasoningColor(level: ThinkingLevel): ThemeColor {
@@ -154,11 +291,14 @@ function loadConfig(): ParallelAgentsConfig {
 		const parsed = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
 		return {
 			maxParallelAgents:
-				typeof parsed.maxParallelAgents === "number" && parsed.maxParallelAgents > 0
+				typeof parsed.maxParallelAgents === "number" &&
+				parsed.maxParallelAgents > 0
 					? Math.floor(parsed.maxParallelAgents)
 					: DEFAULT_CONFIG.maxParallelAgents,
 			allowedExtensionTools: Array.isArray(parsed.allowedExtensionTools)
-				? parsed.allowedExtensionTools.filter((v: unknown) => typeof v === "string")
+				? parsed.allowedExtensionTools.filter(
+						(v: unknown) => typeof v === "string",
+					)
 				: [],
 			models: Array.isArray(parsed.models)
 				? parsed.models.filter(isModelLike).map(normalizeModel)
@@ -184,9 +324,13 @@ function isModelLike(value: unknown): boolean {
 		typeof model.model !== "string" ||
 		typeof model.description !== "string" ||
 		(model.enabled !== undefined && typeof model.enabled !== "boolean")
-	) return false;
-	return (model.backend === undefined || model.backend === "pi") &&
-		typeof model.provider === "string" && model.provider !== "cursor";
+	)
+		return false;
+	return (
+		(model.backend === undefined || model.backend === "pi") &&
+		typeof model.provider === "string" &&
+		model.provider !== "cursor"
+	);
 }
 
 /** Loads only the fields needed by native Pi sessions. */
@@ -202,12 +346,18 @@ function normalizeModel(value: unknown): AgentModel {
 }
 
 /** Finds a model by its configured task-facing name. */
-function findModel(config: ParallelAgentsConfig, name: string): AgentModel | undefined {
+function findModel(
+	config: ParallelAgentsConfig,
+	name: string,
+): AgentModel | undefined {
 	return config.models.find((model) => model.name === name);
 }
 
 /** Resolves only models enabled for task execution. */
-function findEnabledModel(config: ParallelAgentsConfig, name: string): AgentModel | undefined {
+function findEnabledModel(
+	config: ParallelAgentsConfig,
+	name: string,
+): AgentModel | undefined {
 	const model = findModel(config, name);
 	return model?.enabled ? model : undefined;
 }
@@ -215,7 +365,19 @@ function findEnabledModel(config: ParallelAgentsConfig, name: string): AgentMode
 /** Combines native coding tools with explicitly allowed extension tools. */
 function taskTools(allowedExtensionTools: string[]): string[] {
 	const builtins = ["read", "grep", "find", "ls", "write", "edit", "bash"];
-	return [...new Set([...builtins, ...allowedExtensionTools])];
+	const searchBackends = allowedExtensionTools.includes("search")
+		? [
+				"fffind",
+				"ffgrep",
+				"brave_llm_search",
+				"exa_web_search",
+				"context7_search_library",
+				"context7_get_context",
+			]
+		: [];
+	return [
+		...new Set([...builtins, ...allowedExtensionTools, ...searchBackends]),
+	];
 }
 
 /** Identifies models requiring the existing edit-argument compatibility instructions. */
@@ -232,8 +394,15 @@ function formatModelBackend(model: AgentModel): string {
 function debugLog(message: string, details?: unknown): void {
 	try {
 		ensureConfigDir();
-		const suffix = details === undefined ? "" : ` ${JSON.stringify(details, (_key, value) => value instanceof Set ? [...value] : value)}`;
-		appendFileSync(DEBUG_LOG_PATH, `[${new Date().toISOString()}] ${message}${suffix}\n`, "utf-8");
+		const suffix =
+			details === undefined
+				? ""
+				: ` ${JSON.stringify(details, (_key, value) => (value instanceof Set ? [...value] : value))}`;
+		appendFileSync(
+			DEBUG_LOG_PATH,
+			`[${new Date().toISOString()}] ${message}${suffix}\n`,
+			"utf-8",
+		);
 	} catch {
 		// Debug logging must never break agent execution.
 	}
@@ -279,21 +448,34 @@ async function runPiSubAgent(
 	onControllerReady: (controller: AgentSteeringController) => void,
 	activity: AgentActivityLog,
 	approvals: AgentApprovalQueue,
+	preferences: string,
+	childFile: string | undefined,
+	onSessionReady: (file: string | undefined) => void,
+	notify: (type: string, detail: string) => void,
+	resumeMessage?: string,
 ): Promise<{ ok: boolean; name: string; output: string }> {
 	// Use the live context model registry instead of creating a fresh one.
 	// Provider/model registrations from extensions
 	// are applied to ctx.modelRegistry; a new registry only contains built-in/static
 	// models and would fail to find extension-provided model entries.
 	const modelRegistry = ctx.modelRegistry;
-	const registeredModel = modelRegistry.find(modelConfig.provider, modelConfig.model);
+	const registeredModel = modelRegistry.find(
+		modelConfig.provider,
+		modelConfig.model,
+	);
 	if (!registeredModel) {
-		const available = modelRegistry.getAvailable().map((m) => `${m.provider}/${m.id}`).sort();
+		const available = modelRegistry
+			.getAvailable()
+			.map((m) => `${m.provider}/${m.id}`)
+			.sort();
 		throw new Error(
 			`Model ${modelConfig.name} not found: ${modelConfig.provider}/${modelConfig.model}. Available models in active registry: ${available.join(", ") || "(none)"}`,
 		);
 	}
 	if (!modelRegistry.hasConfiguredAuth(registeredModel)) {
-		throw new Error(`Model ${modelConfig.name}: no auth configured for provider ${modelConfig.provider}`);
+		throw new Error(
+			`Model ${modelConfig.name}: no auth configured for provider ${modelConfig.provider}`,
+		);
 	}
 
 	// Sub-agent sessions need their own runtime, but extension-provided providers
@@ -301,7 +483,9 @@ async function runPiSubAgent(
 	const agentDir = getAgentDir();
 	const provider = modelRegistry.getProvider(modelConfig.provider);
 	if (!provider) {
-		throw new Error(`Model ${modelConfig.name}: provider ${modelConfig.provider} is not registered`);
+		throw new Error(
+			`Model ${modelConfig.name}: provider ${modelConfig.provider} is not registered`,
+		);
 	}
 	const modelRuntime = await ModelRuntime.create({
 		authPath: join(agentDir, "auth.json"),
@@ -313,33 +497,75 @@ async function runPiSubAgent(
 		const reviewerProvider = modelRegistry.getProvider(reviewer.provider);
 		if (reviewerProvider) modelRuntime.registerNativeProvider(reviewerProvider);
 	}
-	const model = modelRuntime.getModel(modelConfig.provider, modelConfig.model) ?? registeredModel;
+	const model =
+		modelRuntime.getModel(modelConfig.provider, modelConfig.model) ??
+		registeredModel;
 
 	// Load the same global and trusted project package, extension, and compaction configuration as the main agent.
-	const settingsManager = SettingsManager.create(ctx.cwd, agentDir, { projectTrusted: ctx.isProjectTrusted() });
+	const settingsManager = SettingsManager.create(ctx.cwd, agentDir, {
+		projectTrusted: ctx.isProjectTrusted(),
+	});
 	const loader = new DefaultResourceLoader({
 		cwd: ctx.cwd,
 		agentDir: getAgentDir(),
 		settingsManager,
 		noExtensions: config.allowedExtensionTools.length === 0,
-		extensionFactories: [{ name: "terminal-tool-review", factory: createTerminalToolReviewExtension((review) => {
-			activity.record(stats.name, "approval_requested", `${review.toolName}: ${review.reason}`);
-			onStatsChange();
-			return approvals.request(stats.name, review);
-		}) }],
+		extensionFactories: [
+			{
+				name: "terminal-tool-review",
+				factory: createTerminalToolReviewExtension((review) => {
+					activity.record(
+						stats.name,
+						"approval_requested",
+						`${review.toolName}: ${review.reason}`,
+					);
+					onStatsChange();
+					const pending = approvals.request(stats.name, review);
+					const request = approvals.list().at(-1);
+					if (request)
+						notify(
+							"approval_requested",
+							`${request.id} · ${request.toolName} · ${request.reason}. Inspect exact input with pending_approvals; then approve or deny approvalId=${request.id}. Never auto-approve.`,
+						);
+					return pending;
+				}),
+			},
+		],
 		extensionsOverride: (loaded) => ({
 			...loaded,
-			extensions: loaded.extensions.filter((extension) => !extension.path.endsWith("/tool-review.ts")),
+			extensions: loaded.extensions.filter(
+				(extension) =>
+					!/(?:tool-review|parallel-agents|memories)\.ts$/.test(extension.path),
+			),
 		}),
-		noSkills: true,
+		noSkills: false,
 		noPromptTemplates: true,
 		noThemes: true,
-		noContextFiles: true,
-		systemPromptOverride: () =>
-			"You are an isolated non-interactive sub-agent. Never request user interaction. Follow the provided task exactly.",
+		noContextFiles: false,
+		systemPromptOverride: (baseSystemPrompt) =>
+			`${baseSystemPrompt ?? ""}
+
+You are an isolated non-interactive sub-agent. Never request user interaction. Follow the provided task exactly.
+
+Discover skills by metadata; read a skill body only when relevant to this task. Never load unrelated skill bodies.
+
+Inherited coding/safety preferences:
+${preferences}`,
 	});
 	await loader.reload();
 
+	const childManager = childFile
+		? SessionManager.open(childFile)
+		: SessionManager.create(
+				ctx.cwd,
+				join(agentDir, "sessions", "parallel-children"),
+			);
+	if (!childFile)
+		childManager.appendCustomEntry("parallel-agent-parent", {
+			parentSessionId: ctx.sessionManager.getSessionId(),
+			parentSessionFile: ctx.sessionManager.getSessionFile(),
+			task: stats.name,
+		});
 	const { session } = await createAgentSession({
 		cwd: ctx.cwd,
 		agentDir,
@@ -348,21 +574,34 @@ async function runPiSubAgent(
 		modelRuntime,
 		settingsManager,
 		resourceLoader: loader,
-		sessionManager: SessionManager.inMemory(ctx.cwd),
+		sessionManager: childManager,
 		tools: taskTools(config.allowedExtensionTools),
 	});
 
+	await session.bindExtensions({ mode: "print" });
+	onSessionReady(session.sessionFile);
 	const controller = new AgentSteeringController(session, (type, text) => {
 		activity.record(stats.name, type, text);
+		if (type !== "steering_queued") notify(type, text);
 		onStatsChange();
 	});
 	onControllerReady(controller);
-	debugLog("sub-agent-start", { name: task.name, model: modelConfig.name, reasoningLevel: task.reasoningLevel });
+	debugLog("sub-agent-start", {
+		name: task.name,
+		model: modelConfig.name,
+		reasoningLevel: task.reasoningLevel,
+	});
 	const unsubscribe = session.subscribe((event) => {
 		if (event.type === "message_start" && event.message.role === "user") {
 			const content = event.message.content;
-			controller.observeUserMessage(typeof content === "string" ? content : content
-				.filter((part) => part.type === "text").map((part) => part.text).join(""));
+			controller.observeUserMessage(
+				typeof content === "string"
+					? content
+					: content
+							.filter((part) => part.type === "text")
+							.map((part) => part.text)
+							.join(""),
+			);
 		}
 		if (event.type === "turn_start") {
 			stats.iterations++;
@@ -372,8 +611,13 @@ async function runPiSubAgent(
 		if (event.type === "tool_execution_start") {
 			stats.actions++;
 			const args = event.args as Record<string, unknown>;
-			if (event.toolName === "read" && typeof args.path === "string") stats.filesRead.add(args.path);
-			if ((event.toolName === "edit" || event.toolName === "write") && typeof args.path === "string") stats.filesEdited.add(args.path);
+			if (event.toolName === "read" && typeof args.path === "string")
+				stats.filesRead.add(args.path);
+			if (
+				(event.toolName === "edit" || event.toolName === "write") &&
+				typeof args.path === "string"
+			)
+				stats.filesEdited.add(args.path);
 			activity.startTool(stats.name, event.toolCallId, event.toolName, args);
 			onStatsChange();
 			return;
@@ -384,31 +628,88 @@ async function runPiSubAgent(
 			return;
 		}
 		if (event.type === "tool_execution_end") {
-			activity.endTool(stats.name, event.toolCallId, event.toolName, event.result, event.isError);
+			activity.endTool(
+				stats.name,
+				event.toolCallId,
+				event.toolName,
+				event.result,
+				event.isError,
+			);
+			if (event.isError)
+				notify(
+					"blocker",
+					`Tool ${event.toolName} failed; inspect read_actions/read_action_details for exact error and steer if needed.`,
+				);
 		}
 	});
 
 	try {
 		// Cancellation may arrive while the session is still being constructed.
-		if (stats.status === "cancelled") return { ok: false, name: stats.name, output: "Cancelled." };
-		await session.prompt(buildSubAgentPrompt(task, modelConfig), { source: "extension" });
+		if (stats.status === "cancelled")
+			return { ok: false, name: stats.name, output: "Cancelled." };
+		await session.prompt(
+			resumeMessage
+				? `[Explicit parent resume]
+${resumeMessage}
+Continue from your persisted session; inspect current state before repeating any action.`
+				: buildSubAgentPrompt(task, modelConfig),
+			{ source: "extension" },
+		);
 		// The control tool can change this status while prompt is awaiting completion.
+		if ((stats.status as AgentRunStatus) === "interrupted")
+			return {
+				ok: false,
+				name: stats.name,
+				output: "Interrupted; explicit resume required.",
+			};
 		if ((stats.status as AgentRunStatus) === "cancelled") {
 			onStatsChange();
-			return { ok: false, name: task.name ?? modelConfig.name, output: "Cancelled." };
+			return {
+				ok: false,
+				name: task.name ?? modelConfig.name,
+				output: "Cancelled.",
+			};
 		}
+		const finalAssistant = [...session.messages]
+			.reverse()
+			.find((message) => message.role === "assistant");
+		if (
+			finalAssistant?.role === "assistant" &&
+			(finalAssistant.stopReason === "error" ||
+				finalAssistant.stopReason === "aborted")
+		)
+			throw new Error(
+				finalAssistant.errorMessage ?? "Sub-agent model failed or aborted.",
+			);
 		stats.status = "done";
 		activity.record(stats.name, "completed");
 		onStatsChange();
 		const output = getFinalAssistantText(session);
-		debugLog("sub-agent-done", { name: task.name ?? modelConfig.name, filesRead: stats.filesRead, filesEdited: stats.filesEdited });
+		debugLog("sub-agent-done", {
+			name: task.name ?? modelConfig.name,
+			filesRead: stats.filesRead,
+			filesEdited: stats.filesEdited,
+		});
 		return { ok: true, name: task.name ?? modelConfig.name, output };
 	} catch (error) {
+		const wasInterrupted = stats.status === "interrupted";
 		const wasCancelled = stats.status === "cancelled";
-		stats.status = wasCancelled ? "cancelled" : "failed";
-		activity.record(stats.name, wasCancelled ? "cancelled" : "failed", error instanceof Error ? error.message : String(error));
+		stats.status = wasInterrupted
+			? "interrupted"
+			: wasCancelled
+				? "cancelled"
+				: "failed";
+		activity.record(
+			stats.name,
+			wasCancelled ? "cancelled" : "failed",
+			error instanceof Error ? error.message : String(error),
+		);
 		onStatsChange();
-		debugLog("sub-agent-failed", { name: task.name ?? modelConfig.name, error: error instanceof Error ? error.stack ?? error.message : String(error) });
+		debugLog("sub-agent-failed", {
+			name: task.name ?? modelConfig.name,
+			error:
+				error instanceof Error ? (error.stack ?? error.message) : String(error),
+		});
 		throw error;
 	} finally {
 		controller.finish();
@@ -426,15 +727,20 @@ function formatResults(
 		.map((result, index) => {
 			const status = result.ok ? "OK" : "ERROR";
 			const start = Math.min(reportRegion?.start ?? 0, result.output.length);
-			const requestedEnd = reportRegion?.end === undefined
-				? start + MAX_SUB_AGENT_RESULT_CHARS - 1
-				: Math.min(reportRegion.end, start + MAX_SUB_AGENT_RESULT_CHARS - 1);
+			const requestedEnd =
+				reportRegion?.end === undefined
+					? start + MAX_SUB_AGENT_RESULT_CHARS - 1
+					: Math.min(reportRegion.end, start + MAX_SUB_AGENT_RESULT_CHARS - 1);
 			const end = Math.min(requestedEnd + 1, result.output.length);
 			const output = result.output.slice(start, end);
-			const range = result.output.length > 0 ? `${start}-${Math.max(start, end - 1)}` : "empty";
-			const remaining = end < result.output.length
-				? `\n\n[Showing report characters ${range} of ${result.output.length}. Use parallel_agents_control read_results with reportRegion { start: ${end}, end: ${end + MAX_SUB_AGENT_RESULT_CHARS - 1} } for the next chunk.]`
-				: "";
+			const range =
+				result.output.length > 0
+					? `${start}-${Math.max(start, end - 1)}`
+					: "empty";
+			const remaining =
+				end < result.output.length
+					? `\n\n[Showing report characters ${range} of ${result.output.length}. Use parallel_agents_control read_results with reportRegion { start: ${end}, end: ${end + MAX_SUB_AGENT_RESULT_CHARS - 1} } for the next chunk.]`
+					: "";
 			return `## ${index + 1}. ${result.name} [${status}] · report ${range}/${result.output.length}\n\n${output}${remaining}`;
 		})
 		.join("\n\n---\n\n");
@@ -446,17 +752,23 @@ async function waitForRun(
 	timeoutSeconds: number | undefined,
 	signal: AbortSignal | undefined,
 ): Promise<"completed" | "timed_out" | "aborted" | "approval"> {
-	if (run.results) return "completed";
+	if (run.stats.some((stat) => stat.status === "interrupted")) return "aborted";
+	if (run.results && !run.stats.some((stat) => stat.status === "active"))
+		return "completed";
 	if (run.approvals.list().length) return "approval";
 	const request = run.approvals.waitForRequest();
 
 	let timeout: NodeJS.Timeout | undefined;
 	let abortHandler: (() => void) | undefined;
-	const timeoutPromise = timeoutSeconds === undefined
-		? new Promise<"timed_out">(() => {})
-		: new Promise<"timed_out">((resolve) => {
-			timeout = setTimeout(() => resolve("timed_out"), timeoutSeconds * 1_000);
-		});
+	const timeoutPromise =
+		timeoutSeconds === undefined
+			? new Promise<"timed_out">(() => {})
+			: new Promise<"timed_out">((resolve) => {
+					timeout = setTimeout(
+						() => resolve("timed_out"),
+						timeoutSeconds * 1_000,
+					);
+				});
 	const abortPromise = new Promise<"aborted">((resolve) => {
 		if (signal?.aborted) resolve("aborted");
 		else if (signal) {
@@ -466,30 +778,56 @@ async function waitForRun(
 	});
 
 	try {
-		return await Promise.race([run.completion.then(() => "completed" as const), request.promise.then(() => "approval" as const), timeoutPromise, abortPromise]);
+		return await Promise.race([
+			completeActiveChildren(run).then(() => "completed" as const),
+			request.promise.then(() => "approval" as const),
+			timeoutPromise,
+			abortPromise,
+		]);
 	} finally {
 		request.cancel();
 		if (timeout) clearTimeout(timeout);
-		if (signal && abortHandler) signal.removeEventListener("abort", abortHandler);
+		if (signal && abortHandler)
+			signal.removeEventListener("abort", abortHandler);
 	}
 }
 
 /** Collects an authenticated native model and its routing description. */
-async function selectPiAgentModel(ctx: ExtensionContext): Promise<AgentModel | undefined> {
-	const available = ctx.modelRegistry.getAvailable().filter((model) => model.provider !== "cursor");
+async function selectPiAgentModel(
+	ctx: ExtensionContext,
+): Promise<AgentModel | undefined> {
+	const available = ctx.modelRegistry
+		.getAvailable()
+		.filter((model) => model.provider !== "cursor");
 	if (available.length === 0) {
-		ctx.ui.notify("No authenticated models available. Use /login or configure API keys first.", "error");
+		ctx.ui.notify(
+			"No authenticated models available. Use /login or configure API keys first.",
+			"error",
+		);
 		return undefined;
 	}
-	const providers = [...new Set(available.map((model) => model.provider))].sort();
+	const providers = [
+		...new Set(available.map((model) => model.provider)),
+	].sort();
 	const provider = await ctx.ui.select("Select provider", providers);
 	if (!provider) return undefined;
-	const providerModels = available.filter((model) => model.provider === provider).sort((a, b) => a.id.localeCompare(b.id));
-	const modelId = await ctx.ui.select(`Select model (${provider})`, providerModels.map((model) => model.id));
+	const providerModels = available
+		.filter((model) => model.provider === provider)
+		.sort((a, b) => a.id.localeCompare(b.id));
+	const modelId = await ctx.ui.select(
+		`Select model (${provider})`,
+		providerModels.map((model) => model.id),
+	);
 	if (!modelId) return undefined;
 	const description = await ctx.ui.input("What is this model good at?", "");
 	if (!description?.trim()) return undefined;
-	return { name: modelId, provider, model: modelId, description: description.trim(), enabled: true };
+	return {
+		name: modelId,
+		provider,
+		model: modelId,
+		description: description.trim(),
+		enabled: true,
+	};
 }
 
 /** Registers native sub-agent execution, supervision, and configuration tools. */
@@ -497,47 +835,220 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 	const sessionCostByModel = new Map<string, number>();
 	const runs = new Map<string, ParallelAgentRun>();
 	const progressWidgetKeys = new Set<string>();
-	let nextRunId = 1;
+	const storage = join(getAgentDir(), "parallel-agent-runs");
+	let currentCtx: ExtensionContext | undefined;
+	let visible = new Set<string>();
+	const persist = (run: ParallelAgentRun): void =>
+		saveAgentRun(storage, run.id, {
+			id: run.id,
+			owner: run.owner,
+			tasks: run.tasks,
+			preferences: run.preferences,
+			childFiles: run.childFiles,
+			results: run.results,
+			stats: run.stats.map((stat) => ({
+				...stat,
+				filesRead: [...stat.filesRead],
+				filesEdited: [...stat.filesEdited],
+			})),
+		});
+	const supervision = new AgentSupervisionQueue(
+		() => visible,
+		(events) => {
+			pi.sendMessage(
+				{
+					customType: "parallel-agent-supervision",
+					display: true,
+					content:
+						"Sub-agent events (not new user authorization). No routine polling; act only when necessary.\n" +
+						events
+							.map(
+								(event) =>
+									`${event.runId} · ${event.agent} · ${event.type}: ${event.detail}`,
+							)
+							.join("\n"),
+					details: { events },
+				},
+				{ deliverAs: "steer", triggerTurn: true },
+			);
+		},
+	);
+	const notify = (
+		run: ParallelAgentRun,
+		agent: string,
+		type: string,
+		detail: string,
+	): void => supervision.enqueue({ runId: run.id, agent, type, detail });
+
+	/** Finalizes setup and runtime failures identically for initial and resumed children. */
+	async function trackChild(
+		run: ParallelAgentRun,
+		index: number,
+		child: Promise<AgentResult>,
+		onChange: () => void = () => {},
+	): Promise<AgentResult> {
+		let result: AgentResult;
+		try {
+			result = await child;
+		} catch (error) {
+			const stat = run.stats[index];
+			if (stat.status === "active") {
+				stat.status = "failed";
+				run.activity.record(stat.name, "failed", String(error));
+			}
+			result = {
+				ok: false,
+				name: stat.name,
+				output: error instanceof Error ? error.message : String(error),
+			};
+		}
+		run.results ??= run.stats.map((stat) => ({
+			ok: false,
+			name: stat.name,
+			output: "Task still running or interrupted; no final report yet.",
+		}));
+		run.results[index] = result;
+		persist(run);
+		onChange();
+		if (run.stats[index].status !== "interrupted")
+			notify(
+				run,
+				result.name,
+				result.ok ? "completed" : "failed",
+				`Persisted report available: read_results runId=${run.id}.`,
+			);
+		return result;
+	}
+	const restore = (_event: unknown, ctx: ExtensionContext): void => {
+		currentCtx = ctx;
+		visible = new Set(
+			ctx.sessionManager
+				.getBranch()
+				.flatMap((entry) =>
+					entry.type === "custom" && entry.customType === "parallel-agent-run"
+						? [(entry.data as { id: string }).id]
+						: [],
+				),
+		);
+		for (const id of visible)
+			if (!runs.has(id)) {
+				try {
+					const data = loadAgentRun(storage, id) as any;
+					if (data.owner !== ctx.sessionManager.getSessionId()) continue;
+					const run: ParallelAgentRun = {
+						...data,
+						stats: data.stats.map((stat: any) => ({
+							...stat,
+							status: recoveredStatus(stat.status),
+							filesRead: new Set(stat.filesRead),
+							filesEdited: new Set(stat.filesEdited),
+						})),
+						activity: new AgentActivityLog(),
+						approvals: new AgentApprovalQueue(),
+						controllers: [],
+						childPromises: [],
+						completion: Promise.resolve(data.results ?? []),
+					};
+					runs.set(id, run);
+					const interrupted = run.stats.filter(
+						(stat) => stat.status === "interrupted",
+					);
+					if (interrupted.length)
+						ctx.ui.notify(
+							`${id}: interrupted ${interrupted.map((stat) => stat.name).join(", ")}; explicit parallel_agents_control resume required.`,
+							"warning",
+						);
+					if (interrupted.length)
+						notify(
+							run,
+							interrupted.map((stat) => stat.name).join(", "),
+							"interrupted",
+							"Formerly active work stopped. Explicit control action resume with agents and message is required; never automatically repeat work.",
+						);
+				} catch (error) {
+					ctx.ui.notify(`Cannot recover ${id}: ${String(error)}`, "warning");
+				}
+			}
+		supervision.wake();
+	};
+	pi.on("session_tree", restore);
+	pi.on("agent_settled", () => supervision.wake());
 
 	/** Displays estimated API-equivalent sub-agent usage separately from the main model. */
 	const renderCostStatus = (ctx: ExtensionContext): void => {
-		const costs = [...sessionCostByModel.entries()].filter(([, cost]) => cost > 0);
+		const costs = [...sessionCostByModel.entries()].filter(
+			([, cost]) => cost > 0,
+		);
 		if (costs.length === 0) {
 			ctx.ui.setStatus("parallel-agent-cost", undefined);
 			return;
 		}
 		const total = costs.reduce((sum, [, cost]) => sum + cost, 0);
-		const byModel = costs.map(([model, cost]) => `${model} $${cost.toFixed(4)}`).join(" · ");
-		ctx.ui.setStatus("parallel-agent-cost", ctx.ui.theme.fg("dim", `subagents est. $${total.toFixed(4)} · ${byModel}`));
+		const byModel = costs
+			.map(([model, cost]) => `${model} $${cost.toFixed(4)}`)
+			.join(" · ");
+		ctx.ui.setStatus(
+			"parallel-agent-cost",
+			ctx.ui.theme.fg(
+				"dim",
+				`subagents est. $${total.toFixed(4)} · ${byModel}`,
+			),
+		);
 	};
 
 	pi.registerTool({
 		name: "parallel_agents",
 		label: "Parallel Agents",
-		description: "Run multiple isolated sub-agents concurrently. Every task selects a configured model, a required low/medium/high reasoning level, and a detailed prompt. To make a task read-only, explicitly instruct its sub-agent never to edit files, mutate the repository, or perform any other state-changing action. Uses native Pi sessions only. Blocks by default; set blocking=false to supervise and steer while running.",
-		promptSnippet: "Spawn isolated parallel sub-agents with per-task models and reasoning levels.",
+		description:
+			"Run multiple isolated sub-agents concurrently. Every task selects a configured model, a required low/medium/high reasoning level, and a detailed prompt. To make a task read-only, explicitly instruct its sub-agent never to edit files, mutate the repository, or perform any other state-changing action. Uses native Pi sessions only. Blocks by default; set blocking=false to supervise and steer while running.",
+		promptSnippet:
+			"Spawn isolated parallel sub-agents with per-task models and reasoning levels.",
 		promptGuidelines: [
 			"Use parallel_agents when independent research or implementation tasks can run concurrently.",
 			"parallel_agents requires every task to specify a configured model and a low, medium, or high reasoning level.",
 			"For read-only parallel_agents tasks, explicitly state in the task prompt that the sub-agent must never edit files, mutate the repository, or perform other state-changing actions.",
 			"For parallel_agents tasks that may edit, assign non-overlapping files or directories to concurrent sub-agents.",
-			"Use parallel_agents blocking=false and unique task names to supervise work. Poll status and pending_approvals; inspect the exact call and reviewer reason before approve or deny, then steer if needed. Poll read_actions with after=nextCursor for tool activity. Steering is queued after current tools, not an emergency stop.",
+			"Use parallel_agents blocking=false and unique task names to supervise work. Automatic supervision events announce approvals, failures and completion; use control only when actionable. Inspect pending_approvals; inspect the exact call and reviewer reason before approve or deny, then steer if needed. Read actions only when investigating an event. Steering is queued after current tools, not an emergency stop.",
 		],
 		parameters: PARALLEL_AGENTS_SCHEMA,
-		async execute(_toolCallId, params: ParallelAgentsInput, _signal, onUpdate, ctx) {
+		async execute(
+			_toolCallId,
+			params: ParallelAgentsInput,
+			_signal,
+			onUpdate,
+			ctx,
+		) {
 			const config = loadConfig();
-			if (config.models.length === 0) throw new Error(`No parallel-agent models configured in ${CONFIG_PATH}.`);
-			if (params.tasks.length === 0) throw new Error("No sub-agent tasks provided.");
+			if (config.models.length === 0)
+				throw new Error(
+					`No parallel-agent models configured in ${CONFIG_PATH}.`,
+				);
+			if (params.tasks.length === 0)
+				throw new Error("No sub-agent tasks provided.");
 			if (params.tasks.length > config.maxParallelAgents) {
-				throw new Error(`Requested ${params.tasks.length} sub-agents, but maxParallelAgents is ${config.maxParallelAgents} in ${CONFIG_PATH}.`);
+				throw new Error(
+					`Requested ${params.tasks.length} sub-agents, but maxParallelAgents is ${config.maxParallelAgents} in ${CONFIG_PATH}.`,
+				);
 			}
-			const unavailable = params.tasks.map((task) => task.model).filter((name) => !findEnabledModel(config, name));
-			if (unavailable.length > 0) throw new Error(`Unknown or disabled parallel-agent model(s): ${[...new Set(unavailable)].join(", ")}.`);
+			const unavailable = params.tasks
+				.map((task) => task.model)
+				.filter((name) => !findEnabledModel(config, name));
+			if (unavailable.length > 0)
+				throw new Error(
+					`Unknown or disabled parallel-agent model(s): ${[...new Set(unavailable)].join(", ")}.`,
+				);
 			const names = params.tasks.map((task) => task.name ?? task.model);
-			if (names.some((name) => !name.trim() || name.length > 120) || new Set(names).size !== names.length) {
-				throw new Error("Task names must be nonempty, at most 120 characters, and unique within a run. Name each task when reusing a model.");
+			if (
+				names.some((name) => !name.trim() || name.length > 120) ||
+				new Set(names).size !== names.length
+			) {
+				throw new Error(
+					"Task names must be nonempty, at most 120 characters, and unique within a run. Name each task when reusing a model.",
+				);
 			}
-			const selectedModels = params.tasks.map((task) => findEnabledModel(config, task.model)!);
+			const selectedModels = params.tasks.map((task) =>
+				findEnabledModel(config, task.model)!,
+			);
 
 			const stats: AgentRunStats[] = params.tasks.map((task) => ({
 				name: task.name ?? task.model,
@@ -550,16 +1061,20 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 				filesRead: new Set<string>(),
 				filesEdited: new Set<string>(),
 			}));
-			const runId = `parallel-${nextRunId++}`;
+			const runId = `parallel-${randomUUID()}`;
+			currentCtx = ctx;
 			const progressWidgetKey = `parallel-agents:${runId}`;
 			progressWidgetKeys.add(progressWidgetKey);
 			/** Refreshes the task progress widget without adding model context. */
 			const renderStats = (): void => {
 				const lines = stats.map((stat) => {
 					const reasoningColor = getReasoningColor(stat.reasoningLevel);
-					const icon = stat.status === "active"
-						? ctx.ui.theme.fg(reasoningColor, "●")
-						: stat.status === "done" ? ctx.ui.theme.fg("success", "✓") : ctx.ui.theme.fg("error", "✗");
+					const icon =
+						stat.status === "active"
+							? ctx.ui.theme.fg(reasoningColor, "●")
+							: stat.status === "done"
+								? ctx.ui.theme.fg("success", "✓")
+								: ctx.ui.theme.fg("error", "✗");
 					const identity = ctx.ui.theme.fg(
 						reasoningColor,
 						`${stat.name} (${stat.model}, ${stat.reasoningLevel})`,
@@ -567,158 +1082,497 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 					const counts = `${stat.iterations} iterations · ${stat.filesRead.size} read · ${stat.filesEdited.size} edited · ${stat.actions} actions`;
 					return `${icon} ${identity} ${ctx.ui.theme.fg("dim", counts)}`;
 				});
-				ctx.ui.setWidget(progressWidgetKey, [ctx.ui.theme.fg("accent", `Parallel sub-agents · ${runId}`), ...lines]);
+				ctx.ui.setWidget(progressWidgetKey, [
+					ctx.ui.theme.fg("accent", `Parallel sub-agents · ${runId}`),
+					...lines,
+				]);
 			};
 			renderStats();
-			onUpdate?.({ content: [{ type: "text", text: `Starting ${params.tasks.length} parallel sub-agent(s)...` }], details: {} });
+			onUpdate?.({
+				content: [
+					{
+						type: "text",
+						text: `Starting ${params.tasks.length} parallel sub-agent(s)...`,
+					},
+				],
+				details: {},
+			});
 			const reportedCosts = stats.map(() => 0);
 			/** Adds newly reported usage and refreshes progress for one task. */
 			const updateStatsAndCosts = (index: number): void => {
 				const costDelta = stats[index].cost - reportedCosts[index];
 				if (costDelta !== 0) {
-					sessionCostByModel.set(stats[index].model, (sessionCostByModel.get(stats[index].model) ?? 0) + costDelta);
+					sessionCostByModel.set(
+						stats[index].model,
+						(sessionCostByModel.get(stats[index].model) ?? 0) + costDelta,
+					);
 					reportedCosts[index] = stats[index].cost;
 					renderCostStatus(ctx);
 				}
 				renderStats();
 			};
-			const run: ParallelAgentRun = { id: runId, tasks: params.tasks, stats, activity: new AgentActivityLog(), approvals: new AgentApprovalQueue(), controllers: [], completion: Promise.resolve([]) };
+			const run: ParallelAgentRun = {
+				id: runId,
+				tasks: params.tasks,
+				stats,
+				activity: new AgentActivityLog(),
+				approvals: new AgentApprovalQueue(),
+				controllers: [],
+				childFiles: [],
+				owner: ctx.sessionManager.getSessionId(),
+				preferences: codingPreferences(ctx.sessionManager.getBranch()),
+				childPromises: [],
+				completion: Promise.resolve([]),
+			};
 			runs.set(runId, run);
-			const settled = Promise.allSettled(params.tasks.map((task, index) => runPiSubAgent(
-				task, selectedModels[index], config, ctx, stats[index], () => updateStatsAndCosts(index),
-				(controller) => { run.controllers[index] = controller; },
-				run.activity, run.approvals,
-			)));
-			run.completion = settled.then((items) => {
-				const results = items.map((item, index) => {
-					if (item.status === "fulfilled") return item.value;
-					if (stats[index].status === "active") {
-						stats[index].status = "failed";
-						run.activity.record(stats[index].name, "failed", String(item.reason));
-					}
-					return { ok: false, name: params.tasks[index].name ?? params.tasks[index].model, output: item.reason instanceof Error ? item.reason.message : String(item.reason) };
-				});
-				run.results = results;
-				renderStats();
+			visible.add(runId);
+			persist(run);
+			pi.appendEntry("parallel-agent-run", { id: runId });
+			params.tasks.forEach((task, index) => {
+				run.childPromises[index] = trackChild(
+					run,
+					index,
+					runPiSubAgent(
+						task,
+						selectedModels[index],
+						config,
+						ctx,
+						stats[index],
+						() => updateStatsAndCosts(index),
+						(controller) => {
+							run.controllers[index] = controller;
+						},
+						run.activity,
+						run.approvals,
+						run.preferences,
+						run.childFiles[index],
+						(file) => {
+							run.childFiles[index] = file;
+							persist(run);
+						},
+						(type, detail) => notify(run, stats[index].name, type, detail),
+					),
+					renderStats,
+				);
+			});
+			run.completion = completeActiveChildren(run).then((results) => {
 				setTimeout(() => {
-					ctx.ui.setWidget(progressWidgetKey, undefined);
+					try {
+						ctx.ui.setWidget(progressWidgetKey, undefined);
+					} catch {
+						// The session may have been disposed or replaced before UI cleanup.
+					}
 					progressWidgetKeys.delete(progressWidgetKey);
 				}, 1500);
 				return results;
 			});
-			if (params.blocking === false) return { content: [{ type: "text", text: `Started ${params.tasks.length} background sub-agent(s). Run ID: ${runId}. Use parallel_agents_control to inspect, steer, wait, read actions, or cancel.` }], details: { runId } };
+			if (params.blocking === false)
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Started ${params.tasks.length} background sub-agent(s). Run ID: ${runId}. Use parallel_agents_control to inspect, steer, wait, read actions, or cancel.`,
+						},
+					],
+					details: { runId },
+				};
 			const first = await waitForRun(run, undefined, _signal);
-			if (first === "approval" && run.approvals.list().length) {
-				return { content: [{ type: "text", text: `Run ${runId} is waiting for approval. Use parallel_agents_control action pending_approvals to inspect the request, then approve or deny by approvalId. You can also steer the sub-agent.` }], details: { runId, pendingApprovals: run.approvals.list() } };
+			if (first === "approval") {
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Run ${runId} is waiting for approval. Use parallel_agents_control action pending_approvals to inspect the request, then approve or deny by approvalId. You can also steer the sub-agent.`,
+						},
+					],
+					details: { runId, pendingApprovals: run.approvals.list() },
+				};
 			}
-			if (first === "aborted") return { content: [{ type: "text", text: `Wait cancelled; run ${runId} continues in the background.` }], details: { runId } };
+			if (first === "aborted")
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Wait cancelled; run ${runId} continues in the background.`,
+						},
+					],
+					details: { runId },
+				};
 			const results = await run.completion;
-			return { content: [{ type: "text", text: formatResults(results) }], details: { runId } };
+			return {
+				content: [{ type: "text", text: formatResults(results) }],
+				details: { runId },
+			};
 		},
 	});
-
 
 	pi.registerTool({
 		name: "parallel_agents_control",
 		label: "Parallel Agents Control",
-		description: "Supervise native Pi sub-agents: status, pending_approvals, approve, deny, wait, read_actions, read_action_details, read_results, steer, cancel. Inspect pending_approvals for the exact tool input and reviewer reason before approving or denying by approvalId. Approve only within the user's authorization; ask the user before severe irreversible actions. Denial blocks that call without aborting the child, so steer can correct it. read_actions returns compact metadata; read_action_details and read_results page longer output. wait returns when approval is needed instead of deadlocking. Steering is queued, not an interrupt.",
+		description:
+			"Supervise native Pi sub-agents: explicit resume with agents and message, status, pending_approvals, approve, deny, wait, read_actions, read_action_details, read_results, steer, cancel. Inspect pending_approvals for the exact tool input and reviewer reason before approving or denying by approvalId. Approve only within the user's authorization; ask the user before severe irreversible actions. Denial blocks that call without aborting the child, so steer can correct it. read_actions returns compact metadata; read_action_details and read_results page longer output. wait returns when approval is needed instead of deadlocking. Steering is queued, not an interrupt.",
 		parameters: PARALLEL_AGENTS_CONTROL_SCHEMA,
 		renderCall(args, theme) {
-			const timeout = typeof args.timeoutSeconds === "number" ? ` · timeout ${args.timeoutSeconds}s` : "";
-			return new Text(theme.fg("toolTitle", theme.bold(`parallel_agents_control · ${args.action}`)) + theme.fg("dim", ` · ${args.runId}${timeout}`), 0, 0);
+			const timeout =
+				typeof args.timeoutSeconds === "number"
+					? ` · timeout ${args.timeoutSeconds}s`
+					: "";
+			return new Text(
+				theme.fg(
+					"toolTitle",
+					theme.bold(`parallel_agents_control · ${args.action}`),
+				) + theme.fg("dim", ` · ${args.runId}${timeout}`),
+				0,
+				0,
+			);
 		},
 		renderResult(result, { isPartial }, theme) {
-			if (isPartial) return new Text(theme.fg("dim", "Waiting for background sub-agents…"), 0, 0);
+			if (isPartial)
+				return new Text(
+					theme.fg("dim", "Waiting for background sub-agents…"),
+					0,
+					0,
+				);
 			const content = result.content
 				.filter((part) => part.type === "text")
 				.map((part) => part.text)
 				.join("\n");
-			return new Text(content || theme.fg("dim", "Control action completed."), 0, 0);
+			return new Text(
+				content || theme.fg("dim", "Control action completed."),
+				0,
+				0,
+			);
 		},
 		async execute(_toolCallId, params: ParallelAgentsControlInput, signal) {
 			const run = runs.get(params.runId);
-			if (!run) throw new Error(`Unknown parallel-agent run ID: ${params.runId}.`);
-			const indexes = params.agents?.length ? run.stats.flatMap((stat, index) => params.agents!.includes(stat.name) ? [index] : []) : run.stats.map((_stat, index) => index);
-			const unknown = params.agents?.filter((name) => !run.stats.some((stat) => stat.name === name)) ?? [];
-			if (unknown.length > 0) throw new Error(`Unknown task names: ${unknown.join(", ")}.`);
-			if (params.action === "status") return { content: [{ type: "text", text: indexes.map((index) => `${run.stats[index].name}: ${run.stats[index].status}; ${run.stats[index].actions} actions; ${run.controllers[index]?.pendingCount ?? 0} queued corrections; ${run.approvals.list().filter((review) => review.agent === run.stats[index].name).map((review) => review.id).join(", ") || "no pending approvals"}`).join("\n") }], details: { runId: run.id } };
+			if (
+				!run ||
+				!visible.has(params.runId) ||
+				run.owner !== currentCtx?.sessionManager.getSessionId()
+			)
+				throw new Error(`Unknown parallel-agent run ID: ${params.runId}.`);
+			const indexes = params.agents?.length
+				? run.stats.flatMap((stat, index) =>
+						params.agents!.includes(stat.name) ? [index] : [],
+					)
+				: run.stats.map((_stat, index) => index);
+			const unknown =
+				params.agents?.filter(
+					(name) => !run.stats.some((stat) => stat.name === name),
+				) ?? [];
+			if (unknown.length > 0)
+				throw new Error(`Unknown task names: ${unknown.join(", ")}.`);
+			if (params.action === "resume") {
+				if (!params.agents?.length || !params.message?.trim())
+					throw new Error(
+						"resume requires explicit agents and continuation message.",
+					);
+				const config = loadConfig();
+				for (const index of indexes) {
+					if (
+						run.stats[index].status !== "interrupted" ||
+						!run.childFiles[index] ||
+						!existsSync(run.childFiles[index]!)
+					)
+						throw new Error(
+							`${run.stats[index].name}: only interrupted persisted children can resume.`,
+						);
+					if (!findEnabledModel(config, run.tasks[index].model))
+						throw new Error("Resume model is no longer enabled.");
+				}
+				for (const index of indexes) {
+					run.stats[index].status = "active";
+					run.controllers[index] = undefined;
+					persist(run);
+					run.childPromises[index] = trackChild(
+						run,
+						index,
+						runPiSubAgent(
+							run.tasks[index],
+							findEnabledModel(config, run.tasks[index].model)!,
+							config,
+							currentCtx!,
+							run.stats[index],
+							() => persist(run),
+							(controller) => {
+								run.controllers[index] = controller;
+							},
+							run.activity,
+							run.approvals,
+							run.preferences,
+							run.childFiles[index],
+							(file) => {
+								run.childFiles[index] = file;
+								persist(run);
+							},
+							(type, detail) =>
+								notify(run, run.stats[index].name, type, detail),
+							params.message,
+						),
+					);
+				}
+				run.completion = completeActiveChildren(run);
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text: `Explicitly resumed ${params.agents.join(", ")} in persisted child sessions.`,
+						},
+					],
+					details: { runId: run.id },
+				};
+			}
+			if (params.action === "status")
+				return {
+					content: [
+						{
+							type: "text",
+							text: indexes
+								.map(
+									(index) =>
+										`${run.stats[index].name}: ${run.stats[index].status}; ${run.stats[index].actions} actions; ${run.controllers[index]?.pendingCount ?? 0} queued corrections; ${
+											run.approvals
+												.list()
+												.filter(
+													(review) => review.agent === run.stats[index].name,
+												)
+												.map((review) => review.id)
+												.join(", ") || "no pending approvals"
+										}`,
+								)
+								.join("\n"),
+						},
+					],
+					details: { runId: run.id },
+				};
 			if (params.action === "pending_approvals") {
-				const requests = run.approvals.list().filter((review) => indexes.some((index) => run.stats[index].name === review.agent));
-				return { content: [{ type: "text", text: requests.length ? requests.map((review) => `${review.id} · ${review.agent} · ${review.toolName}\nReason: ${review.reason}\nInput: ${JSON.stringify(review.input)}`).join("\n\n") : "No pending approvals." }], details: { runId: run.id, pendingApprovals: requests } };
+				const requests = run.approvals
+					.list()
+					.filter((review) =>
+						indexes.some((index) => run.stats[index].name === review.agent),
+					);
+				return {
+					content: [
+						{
+							type: "text",
+							text: requests.length
+								? requests
+										.map(
+											(review) =>
+												`${review.id} · ${review.agent} · ${review.toolName}\nReason: ${review.reason}\nInput: ${JSON.stringify(review.input)}`,
+										)
+										.join("\n\n")
+								: "No pending approvals.",
+						},
+					],
+					details: { runId: run.id, pendingApprovals: requests },
+				};
 			}
 			if (params.action === "approve" || params.action === "deny") {
-				if (!params.approvalId) throw new Error(`${params.action} requires approvalId.`);
-				const request = run.approvals.list().find((review) => review.id === params.approvalId);
-				if (!request || !indexes.some((index) => run.stats[index].name === request.agent)) throw new Error(`No pending approval ${params.approvalId} for the selected agents.`);
+				if (!params.approvalId)
+					throw new Error(`${params.action} requires approvalId.`);
+				const request = run.approvals
+					.list()
+					.find((review) => review.id === params.approvalId);
+				if (
+					!request ||
+					!indexes.some((index) => run.stats[index].name === request.agent)
+				)
+					throw new Error(
+						`No pending approval ${params.approvalId} for the selected agents.`,
+					);
 				run.approvals.decide(request.id, params.action === "approve");
-				run.activity.record(request.agent, params.action === "approve" ? "approved" : "denied", `${request.id} · ${request.toolName}`);
-				return { content: [{ type: "text", text: `${request.id}: ${params.action === "approve" ? "allowed once" : "denied"}. ${request.agent} will continue; steer it if a correction is needed.` }], details: { runId: run.id } };
+				run.activity.record(
+					request.agent,
+					params.action === "approve" ? "approved" : "denied",
+					`${request.id} · ${request.toolName}`,
+				);
+				return {
+					content: [
+						{
+							type: "text",
+							text: `${request.id}: ${params.action === "approve" ? "allowed once" : "denied"}. ${request.agent} will continue; steer it if a correction is needed.`,
+						},
+					],
+					details: { runId: run.id },
+				};
 			}
 			if (params.action === "steer") {
-				if (!params.agents?.length || !params.message) throw new Error("steer requires explicit agents and a nonempty message.");
+				if (!params.agents?.length || !params.message)
+					throw new Error(
+						"steer requires explicit agents and a nonempty message.",
+					);
 				const controllers = indexes.map((index) => {
-					if (run.stats[index].status !== "active") throw new Error(`${run.stats[index].name} is ${run.stats[index].status}; cannot steer.`);
+					if (run.stats[index].status !== "active")
+						throw new Error(
+							`${run.stats[index].name} is ${run.stats[index].status}; cannot steer.`,
+						);
 					const controller = run.controllers[index];
-					if (!controller) throw new Error(`${run.stats[index].name} is still starting. Retry after it begins running.`);
+					if (!controller)
+						throw new Error(
+							`${run.stats[index].name} is still starting. Retry after it begins running.`,
+						);
 					controller.assertCanSteer(params.message!);
 					return controller;
 				});
 				// Report each target separately if a session finishes during multi-agent delivery.
-				const receipts = await Promise.allSettled(controllers.map((controller) => controller.steer(params.message!)));
+				const receipts = await Promise.allSettled(
+					controllers.map((controller) => controller.steer(params.message!)),
+				);
 				return {
-					content: [{ type: "text", text: receipts.map((receipt, index) => receipt.status === "fulfilled"
-						? `${run.stats[indexes[index]].name}: accepted ${receipt.value} into Pi's steering queue. See read_actions for delivery; acceptance does not mean applied.`
-						: `${run.stats[indexes[index]].name}: not queued: ${String(receipt.reason)}`).join("\n") }],
+					content: [
+						{
+							type: "text",
+							text: receipts
+								.map((receipt, index) =>
+									receipt.status === "fulfilled"
+										? `${run.stats[indexes[index]].name}: accepted ${receipt.value} into Pi's steering queue. See read_actions for delivery; acceptance does not mean applied.`
+										: `${run.stats[indexes[index]].name}: not queued: ${String(receipt.reason)}`,
+								)
+								.join("\n"),
+						},
+					],
 					details: { runId: run.id },
 				};
 			}
 			if (params.action === "wait") {
-				if (run.approvals.list().length) throw new Error("Run is waiting for approval. Use pending_approvals, then approve or deny before waiting.");
+				if (run.approvals.list().length)
+					throw new Error(
+						"Run is waiting for approval. Use pending_approvals, then approve or deny before waiting.",
+					);
 				let outcome = await waitForRun(run, params.timeoutSeconds, signal);
-				while (outcome === "approval" && !run.approvals.list().length) outcome = await waitForRun(run, params.timeoutSeconds, signal);
-				if (outcome === "approval") return { content: [{ type: "text", text: `Run ${run.id} is waiting for approval. Use pending_approvals to inspect it.` }], details: { runId: run.id, pendingApprovals: run.approvals.list() } };
+				while (outcome === "approval" && !run.approvals.list().length)
+					outcome = await waitForRun(run, params.timeoutSeconds, signal);
+				if (outcome === "approval")
+					return {
+						content: [
+							{
+								type: "text",
+								text: `Run ${run.id} is waiting for approval. Use pending_approvals to inspect it.`,
+							},
+						],
+						details: { runId: run.id, pendingApprovals: run.approvals.list() },
+					};
 				if (outcome === "timed_out") {
-					return { content: [{ type: "text", text: `Wait timed out; background sub-agents are still running.\n\n${indexes.map((index) => `${run.stats[index].name}: ${run.stats[index].status}`).join("\n")}` }], details: { runId: run.id, waitTimedOut: true } };
+					return {
+						content: [
+							{
+								type: "text",
+								text: `Wait timed out; background sub-agents are still running.\n\n${indexes.map((index) => `${run.stats[index].name}: ${run.stats[index].status}`).join("\n")}`,
+							},
+						],
+						details: { runId: run.id, waitTimedOut: true },
+					};
 				}
 				if (outcome === "aborted") {
-					return { content: [{ type: "text", text: "Wait cancelled; background sub-agents were not stopped." }], details: { runId: run.id, waitCancelled: true } };
+					return {
+						content: [
+							{
+								type: "text",
+								text: "Wait cancelled; background sub-agents were not stopped.",
+							},
+						],
+						details: { runId: run.id, waitCancelled: true },
+					};
 				}
 				const results = run.results!;
-				return { content: [{ type: "text", text: formatResults(indexes.map((index) => results[index])) }], details: { runId: run.id } };
+				return {
+					content: [
+						{
+							type: "text",
+							text: formatResults(indexes.map((index) => results[index])),
+						},
+					],
+					details: { runId: run.id },
+				};
 			}
 			if (params.action === "read_results") {
-				if (params.reportRegion && params.reportRegion.end < params.reportRegion.start) {
-					throw new Error("reportRegion.end must be greater than or equal to reportRegion.start.");
+				if (
+					params.reportRegion &&
+					params.reportRegion.end < params.reportRegion.start
+				) {
+					throw new Error(
+						"reportRegion.end must be greater than or equal to reportRegion.start.",
+					);
 				}
 				if (!run.results) {
-					return { content: [{ type: "text", text: "Sub-agent reports are not available until the run completes. Use action wait or status first." }], details: { runId: run.id, status: "running" } };
+					return {
+						content: [
+							{
+								type: "text",
+								text: "Sub-agent reports are not available until the run completes. Use action wait or status first.",
+							},
+						],
+						details: { runId: run.id, status: "running" },
+					};
 				}
 				const results = indexes.map((index) => run.results![index]);
 				return {
-					content: [{ type: "text", text: formatResults(results, params.reportRegion) }],
+					content: [
+						{ type: "text", text: formatResults(results, params.reportRegion) },
+					],
 					details: { runId: run.id, reportRegion: params.reportRegion },
 				};
 			}
 			if (params.action === "read_actions") {
-				const page = run.activity.read({ agents: indexes.map((index) => run.stats[index].name), after: params.after, readRegion: params.readRegion, limit: params.limit, offset: params.offset });
-				return { content: [{ type: "text", text: page.text }], details: { runId: run.id, nextCursor: page.nextCursor, hasMore: page.hasMore } };
+				const page = run.activity.read({
+					agents: indexes.map((index) => run.stats[index].name),
+					after: params.after,
+					readRegion: params.readRegion,
+					limit: params.limit,
+					offset: params.offset,
+				});
+				return {
+					content: [{ type: "text", text: page.text }],
+					details: {
+						runId: run.id,
+						nextCursor: page.nextCursor,
+						hasMore: page.hasMore,
+					},
+				};
 			}
 			if (params.action === "read_action_details") {
-				if (params.actionIndex === undefined) throw new Error("read_action_details requires actionIndex.");
-				const page = run.activity.readDetails(params.actionIndex, params.detailRegion, indexes.map((index) => run.stats[index].name));
-				return { content: [{ type: "text", text: page.text }], details: { runId: run.id } };
+				if (params.actionIndex === undefined)
+					throw new Error("read_action_details requires actionIndex.");
+				const page = run.activity.readDetails(
+					params.actionIndex,
+					params.detailRegion,
+					indexes.map((index) => run.stats[index].name),
+				);
+				return {
+					content: [{ type: "text", text: page.text }],
+					details: { runId: run.id },
+				};
 			}
 			if (params.action === "cancel") {
-				for (const review of run.approvals.list()) if (indexes.some((index) => run.stats[index].name === review.agent)) run.approvals.decide(review.id, false);
-				await Promise.all(indexes.map(async (index) => {
-					if (run.stats[index].status !== "active") return;
-					run.stats[index].status = "cancelled";
-					run.activity.record(run.stats[index].name, "cancelled", "Cancellation requested.");
-					await run.controllers[index]?.abort();
-				}));
-				return { content: [{ type: "text", text: `Cancellation requested for ${indexes.map((index) => run.stats[index].name).join(", ")}.` }], details: { runId: run.id } };
+				for (const review of run.approvals.list())
+					if (indexes.some((index) => run.stats[index].name === review.agent))
+						run.approvals.decide(review.id, false);
+				await Promise.all(
+					indexes.map(async (index) => {
+						if (run.stats[index].status !== "active") return;
+						run.stats[index].status = "cancelled";
+						run.activity.record(
+							run.stats[index].name,
+							"cancelled",
+							"Cancellation requested.",
+						);
+						await run.controllers[index]?.abort();
+					}),
+				);
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Cancellation requested for ${indexes.map((index) => run.stats[index].name).join(", ")}.`,
+						},
+					],
+					details: { runId: run.id },
+				};
 			}
-			throw new Error("action must be status, pending_approvals, approve, deny, wait, read_actions, read_action_details, read_results, steer, or cancel.");
+			throw new Error(
+				"action must be resume, status, pending_approvals, approve, deny, wait, read_actions, read_action_details, read_results, steer, or cancel.",
+			);
 		},
 	});
 
@@ -727,53 +1581,95 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 		handler: async (_args, ctx) => {
 			const config = loadConfig();
 			while (true) {
-				const action = await ctx.ui.select("Parallel agents", ["List models", "Add model", "Edit description", "Enable or disable model", "Delete model", `Set max parallel agents (current ${config.maxParallelAgents})`, "Show config path", "Done"]);
+				const action = await ctx.ui.select("Parallel agents", [
+					"List models",
+					"Add model",
+					"Edit description",
+					"Enable or disable model",
+					"Delete model",
+					`Set max parallel agents (current ${config.maxParallelAgents})`,
+					"Show config path",
+					"Done",
+				]);
 				if (!action || action === "Done") break;
 				if (action === "List models") {
-					const list = config.models.map((model) => `- ${model.name} [${model.enabled ? "enabled" : "disabled"}] (${formatModelBackend(model)}): ${model.description}`).join("\n");
+					const list = config.models
+						.map(
+							(model) =>
+								`- ${model.name} [${model.enabled ? "enabled" : "disabled"}] (${formatModelBackend(model)}): ${model.description}`,
+						)
+						.join("\n");
 					ctx.ui.notify(list || "No models configured.", "info");
 				} else if (action === "Add model") {
 					const model = await selectPiAgentModel(ctx);
 					if (model) {
-						config.models = [...config.models.filter((entry) => entry.name !== model.name), model];
+						config.models = [
+							...config.models.filter((entry) => entry.name !== model.name),
+							model,
+						];
 						saveConfig(config);
 						ctx.ui.notify(`Saved model ${model.name}`, "info");
 					}
 				} else if (action === "Edit description") {
-					const selected = await ctx.ui.select("Select model", config.models.map((model) => model.name));
+					const selected = await ctx.ui.select(
+						"Select model",
+						config.models.map((model) => model.name),
+					);
 					const model = selected ? findModel(config, selected) : undefined;
 					if (!model) continue;
-					const description = await ctx.ui.input("What is this model good at?", model.description);
+					const description = await ctx.ui.input(
+						"What is this model good at?",
+						model.description,
+					);
 					if (!description?.trim()) continue;
 					model.description = description.trim();
 					saveConfig(config);
 				} else if (action === "Enable or disable model") {
-					const selected = await ctx.ui.select("Select model", config.models.map((model) => `${model.name} [${model.enabled ? "enabled" : "disabled"}]`));
+					const selected = await ctx.ui.select(
+						"Select model",
+						config.models.map(
+							(model) =>
+								`${model.name} [${model.enabled ? "enabled" : "disabled"}]`,
+						),
+					);
 					const name = selected?.replace(/ \[(?:enabled|disabled)\]$/, "");
 					const model = name ? findModel(config, name) : undefined;
 					if (!model) continue;
 					model.enabled = !model.enabled;
 					saveConfig(config);
-					ctx.ui.notify(`${model.name} is now ${model.enabled ? "enabled" : "disabled"}.`, "info");
+					ctx.ui.notify(
+						`${model.name} is now ${model.enabled ? "enabled" : "disabled"}.`,
+						"info",
+					);
 				} else if (action === "Delete model") {
-					const selected = await ctx.ui.select("Delete model", config.models.map((model) => model.name));
+					const selected = await ctx.ui.select(
+						"Delete model",
+						config.models.map((model) => model.name),
+					);
 					if (selected) {
-						config.models = config.models.filter((model) => model.name !== selected);
+						config.models = config.models.filter(
+							(model) => model.name !== selected,
+						);
 						saveConfig(config);
 					}
 				} else if (action.startsWith("Set max")) {
-					const value = await ctx.ui.input("Max parallel agents", String(config.maxParallelAgents));
+					const value = await ctx.ui.input(
+						"Max parallel agents",
+						String(config.maxParallelAgents),
+					);
 					const parsed = Number(value);
 					if (Number.isFinite(parsed) && parsed > 0) {
 						config.maxParallelAgents = Math.floor(parsed);
 						saveConfig(config);
 					} else if (value) ctx.ui.notify("Enter a positive number", "warning");
-				} else if (action === "Show config path") ctx.ui.notify(CONFIG_PATH, "info");
+				} else if (action === "Show config path")
+					ctx.ui.notify(CONFIG_PATH, "info");
 			}
 		},
 	});
 
 	pi.on("session_start", (_event, ctx) => {
+		restore(_event, ctx);
 		sessionCostByModel.clear();
 		ctx.ui.setWidget("parallel-agents", undefined);
 		for (const key of progressWidgetKeys) ctx.ui.setWidget(key, undefined);
@@ -781,26 +1677,41 @@ export default function parallelAgentsExtension(pi: ExtensionAPI): void {
 		ctx.ui.setStatus("parallel-agent-cost", undefined);
 		const config = loadConfig();
 		const enabledCount = config.models.filter((model) => model.enabled).length;
-		ctx.ui.setStatus("parallel-agents", ctx.ui.theme.fg("dim", `subagents:${enabledCount}/${config.models.length}`));
+		ctx.ui.setStatus(
+			"parallel-agents",
+			ctx.ui.theme.fg(
+				"dim",
+				`subagents:${enabledCount}/${config.models.length}`,
+			),
+		);
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {
 		for (const key of progressWidgetKeys) ctx.ui.setWidget(key, undefined);
 		progressWidgetKeys.clear();
 		for (const run of runs.values()) run.approvals.denyAll();
-		await Promise.all([...runs.values()].map((run) => Promise.all(run.stats.map(async (stat, index) => {
-			if (stat.status !== "active") return;
-			// Include starting agents whose controllers have not been constructed yet.
-			stat.status = "cancelled";
-			await run.controllers[index]?.abort();
-		}))));
+		await Promise.all(
+			[...runs.values()].map((run) =>
+				Promise.all(
+					run.stats.map(async (stat, index) => {
+						if (stat.status !== "active") return;
+						// Include starting agents whose controllers have not been constructed yet.
+						stat.status = "interrupted";
+						persist(run);
+						await run.controllers[index]?.abort();
+					}),
+				),
+			),
+		);
 		runs.clear();
 	});
 
 	pi.on("before_agent_start", (event) => {
 		const models = loadConfig().models.filter((model) => model.enabled);
 		if (models.length === 0) return;
-		const entries = models.map((model) => `- ${model.name}: ${model.description}`).join("\n");
-		return { systemPrompt: `${event.systemPrompt}\n\nConfigured parallel_agents models:\n${entries}` };
+		const entries = models
+			.map((model) => `- ${model.name}: ${model.description}`)
+			.join("\n");
+		event.systemPromptOptions.sections.parallel_models = `Configured parallel_agents models:\n${entries}`;
 	});
 }

@@ -582,7 +582,7 @@ export default function memoriesExtension(pi: ExtensionAPI) {
 	pi.on("before_agent_start", async (event) => {
 		const prompt = buildMemoryPrompt(activeSnapshot);
 		if (!prompt) return undefined;
-		return { systemPrompt: `${event.systemPrompt}\n\n${prompt}` };
+		event.systemPromptOptions.sections.memories = prompt;
 	});
 
 	pi.registerTool({
@@ -627,7 +627,7 @@ export default function memoriesExtension(pi: ExtensionAPI) {
 					theme,
 					() => {
 						ctx.ui.setWidget("memories-status", [], { placement: "belowEditor" });
-						done();
+						done(undefined);
 					},
 					() => memories.loadSnapshot(ctx.cwd),
 				);

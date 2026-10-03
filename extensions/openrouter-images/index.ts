@@ -188,7 +188,7 @@ export default function openRouterImages(pi: ExtensionAPI): void {
 	pi.on("before_agent_start", (event) => {
 		const config = loadImageConfig();
 		if (config.models.length === 0) return;
-		return { systemPrompt: `${event.systemPrompt}\n\n${agentInstructions(config)}` };
+		event.systemPromptOptions.sections.image_models = agentInstructions(config);
 	});
 
 	pi.registerTool({

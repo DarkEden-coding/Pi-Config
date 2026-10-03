@@ -1,418 +1,740 @@
 import { StringEnum } from "@earendil-works/pi-ai";
-import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+  Theme,
+} from "@earendil-works/pi-coding-agent";
 import { matchesKey, Text, truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 type Status = "pending" | "in_progress" | "completed";
 
 type TodoTask = {
-	id: string;
-	title: string;
-	description: string;
-	acceptanceCriteria: string[];
-	notes: string[];
-	dependencies: string[];
-	status: Status;
+  id: string;
+  title: string;
+  description: string;
+  acceptanceCriteria: string[];
+  notes: string[];
+  dependencies: string[];
+  status: Status;
 };
 
 type CompletionRequest = {
-	id: string;
+  id: string;
 };
 
 type TodoWeb = {
-	title: string;
-	tasks: TodoTask[];
+  title: string;
+  tasks: TodoTask[];
 };
 
 type TodoState = {
-	web?: TodoWeb;
-	lastAction?: string;
-	lastCompletedTaskId?: string;
-	lastCompletedTaskIds?: string[];
-	newlyUnblocked?: TodoTask[];
-	stillBlocked?: TodoTask[];
-	error?: string;
+  web?: TodoWeb;
+  lastAction?: string;
+  lastCompletedTaskId?: string;
+  lastCompletedTaskIds?: string[];
+  newlyUnblocked?: TodoTask[];
+  stillBlocked?: TodoTask[];
+  error?: string;
 };
 
 const VALID_STATUSES = new Set<Status>(["pending", "in_progress", "completed"]);
 
 const CompletionParams = Type.Object({
-	id: Type.String({ description: "Task id being completed." }),
+  id: Type.String({ description: "Task id being completed." }),
 });
 
 const TodoTaskParams = Type.Object({
-	id: Type.String({ description: "Stable short task id." }),
-	title: Type.String({ description: "Task title." }),
-	description: Type.String({ description: "Task description." }),
-	acceptanceCriteria: Type.Optional(Type.Array(Type.String())),
-	notes: Type.Optional(Type.Array(Type.String())),
-	dependencies: Type.Optional(Type.Array(Type.String(), { description: "Task ids that must be completed before this task is unblocked." })),
-	status: Type.Optional(StringEnum(["pending", "in_progress", "completed"] as const)),
+  id: Type.String({ description: "Stable short task id." }),
+  title: Type.String({ description: "Task title." }),
+  description: Type.String({ description: "Task description." }),
+  acceptanceCriteria: Type.Optional(Type.Array(Type.String())),
+  notes: Type.Optional(Type.Array(Type.String())),
+  dependencies: Type.Optional(
+    Type.Array(Type.String(), {
+      description:
+        "Task ids that must be completed before this task is unblocked.",
+    }),
+  ),
+  status: Type.Optional(
+    StringEnum(["pending", "in_progress", "completed"] as const),
+  ),
 });
 
 const TodoWebInput = Type.Object({
-	title: Type.String({ description: "Todo web title." }),
-	tasks: Type.Array(TodoTaskParams),
+  title: Type.String({ description: "Todo web title." }),
+  tasks: Type.Array(TodoTaskParams),
 });
 
 const TodoWebParams = Type.Object({
-	action: StringEnum(["set", "get", "complete", "clear"] as const),
-	web: Type.Optional(TodoWebInput),
-	taskId: Type.Optional(Type.String({ description: "Task id for action=complete (single-task shorthand)." })),
-	completions: Type.Optional(Type.Array(CompletionParams, { description: "One or more completed task ids for action=complete. Use this for parallel task completions." })),
+  action: StringEnum(["set", "get", "complete", "clear"] as const),
+  web: Type.Optional(TodoWebInput),
+  taskId: Type.Optional(
+    Type.String({
+      description: "Task id for action=complete (single-task shorthand).",
+    }),
+  ),
+  completions: Type.Optional(
+    Type.Array(CompletionParams, {
+      description:
+        "One or more completed task ids for action=complete. Use this for parallel task completions.",
+    }),
+  ),
 });
 
 function cloneWeb(web?: TodoWeb): TodoWeb | undefined {
-	if (!web) return undefined;
-	const clone = JSON.parse(JSON.stringify(web)) as TodoWeb;
-	for (const task of clone.tasks) {
-		if ((task.status as string) === "unapproved") task.status = "pending";
-	}
-	return clone;
+  if (!web) return undefined;
+  const clone = JSON.parse(JSON.stringify(web)) as TodoWeb;
+  for (const task of clone.tasks) {
+    if ((task.status as string) === "unapproved") task.status = "pending";
+  }
+  return clone;
 }
 
-function normalizeStringArray(value: unknown, field: string, errors: string[]): string[] {
-	if (value === undefined) return [];
-	if (!Array.isArray(value)) {
-		errors.push(`${field} must be an array of strings`);
-		return [];
-	}
-	const out: string[] = [];
-	for (const item of value) {
-		if (typeof item !== "string") errors.push(`${field} contains a non-string item`);
-		else out.push(item);
-	}
-	return out;
+function normalizeStringArray(
+  value: unknown,
+  field: string,
+  errors: string[],
+): string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    errors.push(`${field} must be an array of strings`);
+    return [];
+  }
+  const out: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string")
+      errors.push(`${field} contains a non-string item`);
+    else out.push(item);
+  }
+  return out;
 }
 
-function validateAndNormalizeWeb(input: unknown): { web?: TodoWeb; errors: string[] } {
-	const errors: string[] = [];
-	if (!input || typeof input !== "object" || Array.isArray(input)) {
-		return { errors: ["web must be an object with { title, tasks }"] };
-	}
+function validateAndNormalizeWeb(input: unknown): {
+  web?: TodoWeb;
+  errors: string[];
+} {
+  const errors: string[] = [];
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return { errors: ["web must be an object with { title, tasks }"] };
+  }
 
-	const raw = input as Record<string, unknown>;
-	const title = typeof raw.title === "string" && raw.title.trim() ? raw.title.trim() : "Todo Web";
-	if (!Array.isArray(raw.tasks)) errors.push("web.tasks must be an array");
-	const rawTasks = Array.isArray(raw.tasks) ? raw.tasks : [];
+  const raw = input as Record<string, unknown>;
+  const title =
+    typeof raw.title === "string" && raw.title.trim()
+      ? raw.title.trim()
+      : "Todo Web";
+  if (!Array.isArray(raw.tasks)) errors.push("web.tasks must be an array");
+  const rawTasks = Array.isArray(raw.tasks) ? raw.tasks : [];
 
-	const tasks: TodoTask[] = [];
-	const ids = new Set<string>();
-	for (let i = 0; i < rawTasks.length; i++) {
-		const item = rawTasks[i];
-		if (!item || typeof item !== "object" || Array.isArray(item)) {
-			errors.push(`tasks[${i}] must be an object`);
-			continue;
-		}
-		const t = item as Record<string, unknown>;
-		const id = typeof t.id === "string" ? t.id.trim() : "";
-		if (!id) errors.push(`tasks[${i}].id must be a non-empty string`);
-		if (id && ids.has(id)) errors.push(`duplicate task id: ${id}`);
-		if (id) ids.add(id);
+  const tasks: TodoTask[] = [];
+  const ids = new Set<string>();
+  for (let i = 0; i < rawTasks.length; i++) {
+    const item = rawTasks[i];
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      errors.push(`tasks[${i}] must be an object`);
+      continue;
+    }
+    const t = item as Record<string, unknown>;
+    const id = typeof t.id === "string" ? t.id.trim() : "";
+    if (!id) errors.push(`tasks[${i}].id must be a non-empty string`);
+    if (id && ids.has(id)) errors.push(`duplicate task id: ${id}`);
+    if (id) ids.add(id);
 
-		const title = typeof t.title === "string" ? t.title.trim() : "";
-		if (!title) errors.push(`tasks[${i}].title must be a non-empty string`);
-		const description = typeof t.description === "string" ? t.description.trim() : "";
-		if (!description) errors.push(`tasks[${i}].description must be a non-empty string`);
+    const title = typeof t.title === "string" ? t.title.trim() : "";
+    if (!title) errors.push(`tasks[${i}].title must be a non-empty string`);
+    const description =
+      typeof t.description === "string" ? t.description.trim() : "";
+    if (!description)
+      errors.push(`tasks[${i}].description must be a non-empty string`);
 
-		const status = t.status === undefined ? "pending" : t.status as Status;
-		if (!VALID_STATUSES.has(status)) errors.push(`task ${id || i} has invalid status: ${String(t.status)}`);
+    const status = t.status === undefined ? "pending" : (t.status as Status);
+    if (!VALID_STATUSES.has(status))
+      errors.push(`task ${id || i} has invalid status: ${String(t.status)}`);
 
-		tasks.push({
-			id,
-			title,
-			description,
-			acceptanceCriteria: normalizeStringArray(t.acceptanceCriteria, `task ${id || i}.acceptanceCriteria`, errors),
-			notes: normalizeStringArray(t.notes, `task ${id || i}.notes`, errors),
-			dependencies: normalizeStringArray(t.dependencies, `task ${id || i}.dependencies`, errors),
-			status: VALID_STATUSES.has(status) ? status : "pending",
-		});
-	}
+    tasks.push({
+      id,
+      title,
+      description,
+      acceptanceCriteria: normalizeStringArray(
+        t.acceptanceCriteria,
+        `task ${id || i}.acceptanceCriteria`,
+        errors,
+      ),
+      notes: normalizeStringArray(t.notes, `task ${id || i}.notes`, errors),
+      dependencies: normalizeStringArray(
+        t.dependencies,
+        `task ${id || i}.dependencies`,
+        errors,
+      ),
+      status: VALID_STATUSES.has(status) ? status : "pending",
+    });
+  }
 
-	for (const task of tasks) {
-		for (const dep of task.dependencies) {
-			if (!ids.has(dep)) errors.push(`task ${task.id} depends on missing task id: ${dep}`);
-			if (dep === task.id) errors.push(`task ${task.id} cannot depend on itself`);
-		}
-	}
+  for (const task of tasks) {
+    for (const dep of task.dependencies) {
+      if (!ids.has(dep))
+        errors.push(`task ${task.id} depends on missing task id: ${dep}`);
+      if (dep === task.id)
+        errors.push(`task ${task.id} cannot depend on itself`);
+    }
+  }
 
-	const visiting = new Set<string>();
-	const visited = new Set<string>();
-	const byId = new Map(tasks.map((t) => [t.id, t]));
-	function visit(id: string, path: string[]): void {
-		if (visited.has(id)) return;
-		if (visiting.has(id)) {
-			errors.push(`dependency cycle detected: ${[...path, id].join(" -> ")}`);
-			return;
-		}
-		visiting.add(id);
-		const task = byId.get(id);
-		for (const dep of task?.dependencies ?? []) if (byId.has(dep)) visit(dep, [...path, id]);
-		visiting.delete(id);
-		visited.add(id);
-	}
-	for (const task of tasks) if (task.id) visit(task.id, []);
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  function visit(id: string, path: string[]): void {
+    if (visited.has(id)) return;
+    if (visiting.has(id)) {
+      errors.push(`dependency cycle detected: ${[...path, id].join(" -> ")}`);
+      return;
+    }
+    visiting.add(id);
+    const task = byId.get(id);
+    for (const dep of task?.dependencies ?? [])
+      if (byId.has(dep)) visit(dep, [...path, id]);
+    visiting.delete(id);
+    visited.add(id);
+  }
+  for (const task of tasks) if (task.id) visit(task.id, []);
 
-	return errors.length ? { errors } : { web: { title, tasks }, errors: [] };
+  return errors.length ? { errors } : { web: { title, tasks }, errors: [] };
 }
 
 function isUnblocked(task: TodoTask, web: TodoWeb): boolean {
-	if (task.status === "completed") return false;
-	const byId = new Map(web.tasks.map((t) => [t.id, t]));
-	return task.dependencies.every((id) => byId.get(id)?.status === "completed");
+  if (task.status === "completed") return false;
+  const byId = new Map(web.tasks.map((t) => [t.id, t]));
+  return task.dependencies.every((id) => byId.get(id)?.status === "completed");
 }
 
 function blockedTasks(web?: TodoWeb): TodoTask[] {
-	if (!web) return [];
-	return web.tasks.filter((t) => t.status !== "completed" && !isUnblocked(t, web));
+  if (!web) return [];
+  return web.tasks.filter(
+    (t) => t.status !== "completed" && !isUnblocked(t, web),
+  );
 }
 
 function unblockedTasks(web?: TodoWeb): TodoTask[] {
-	if (!web) return [];
-	return web.tasks.filter((t) => isUnblocked(t, web));
+  if (!web) return [];
+  return web.tasks.filter((t) => isUnblocked(t, web));
 }
 
 function taskLabel(task: TodoTask | undefined, id: string): string {
-	return task ? `${task.id}: ${task.title}` : id;
+  return task ? `${task.id}: ${task.title}` : id;
 }
 
-function relationText(task: TodoTask, web: TodoWeb): { deps: string; unlocks: string } {
-	const byId = new Map(web.tasks.map((t) => [t.id, t]));
-	const dependents = web.tasks.filter((candidate) => candidate.dependencies.includes(task.id));
-	return {
-		deps: task.dependencies.length ? task.dependencies.map((id) => `${taskLabel(byId.get(id), id)}${byId.get(id)?.status === "completed" ? " ✓" : ""}`).join(", ") : "none",
-		unlocks: dependents.length ? dependents.map((t) => `${t.id}: ${t.title}`).join(", ") : "none",
-	};
+function relationText(
+  task: TodoTask,
+  web: TodoWeb,
+): { deps: string; unlocks: string } {
+  const byId = new Map(web.tasks.map((t) => [t.id, t]));
+  const dependents = web.tasks.filter((candidate) =>
+    candidate.dependencies.includes(task.id),
+  );
+  return {
+    deps: task.dependencies.length
+      ? task.dependencies
+          .map(
+            (id) =>
+              `${taskLabel(byId.get(id), id)}${byId.get(id)?.status === "completed" ? " ✓" : ""}`,
+          )
+          .join(", ")
+      : "none",
+    unlocks: dependents.length
+      ? dependents.map((t) => `${t.id}: ${t.title}`).join(", ")
+      : "none",
+  };
 }
 
 function formatWeb(web?: TodoWeb): string {
-	if (!web) return "No todo web.";
-	return [`# ${web.title}`, "", ...web.tasks.map((t) => {
-		const rel = relationText(t, web);
-		const blocked = t.status !== "completed" && !isUnblocked(t, web) ? " blocked" : "";
-		const criteria = t.acceptanceCriteria.length ? `\n  acceptance: ${t.acceptanceCriteria.join("; ")}` : "";
-		const notes = t.notes.length ? `\n  notes: ${t.notes.join("; ")}` : "";
-		return `- [${t.status === "completed" ? "x" : " "}] ${t.id}: ${t.title} (${t.status}${blocked})\n  ${t.description}\n  deps: ${rel.deps}\n  unlocks: ${rel.unlocks}${criteria}${notes}`;
-	})].join("\n");
+  if (!web) return "No todo web.";
+  return [
+    `# ${web.title}`,
+    "",
+    ...web.tasks.map((t) => {
+      const rel = relationText(t, web);
+      const blocked =
+        t.status !== "completed" && !isUnblocked(t, web) ? " blocked" : "";
+      const criteria = t.acceptanceCriteria.length
+        ? `\n  acceptance: ${t.acceptanceCriteria.join("; ")}`
+        : "";
+      const notes = t.notes.length ? `\n  notes: ${t.notes.join("; ")}` : "";
+      return `- [${t.status === "completed" ? "x" : " "}] ${t.id}: ${t.title} (${t.status}${blocked})\n  ${t.description}\n  deps: ${rel.deps}\n  unlocks: ${rel.unlocks}${criteria}${notes}`;
+    }),
+  ].join("\n");
+}
+
+function compactSnapshot(web: TodoWeb): string {
+  const completed = new Set(
+    web.tasks.filter((t) => t.status === "completed").map((t) => t.id),
+  );
+  return `Todo active snapshot: ${web.title}
+${web.tasks
+  .filter((t) => t.status !== "completed")
+  .map((t) => {
+    const blockers = t.dependencies.filter((id) => !completed.has(id));
+    return `- ${t.id}: ${t.title} [${t.status}; ${blockers.length ? `blocked by ${blockers.join(", ")}` : "unblocked"}]
+  ${t.description}${
+    t.acceptanceCriteria.length
+      ? `
+  acceptance: ${t.acceptanceCriteria.join("; ")}`
+      : ""
+  }${
+    t.notes.length
+      ? `
+  notes: ${t.notes.join("; ")}`
+      : ""
+  }`;
+  })
+  .join("\n")}`;
+}
+
+function actionSummary(
+  action: string,
+  web: TodoWeb,
+  completed: string[] = [],
+  newlyUnblocked: TodoTask[] = [],
+): string {
+  const done = web.tasks.filter((t) => t.status === "completed");
+  const blockers = blockedTasks(web).map(
+    (t) =>
+      `${t.id}<-${t.dependencies.filter((id) => !done.some((d) => d.id === id)).join(",")}`,
+  );
+  return `${action}: ${web.title}; ${done.length}/${web.tasks.length} completed; ${unblockedTasks(web).length} unblocked; ${blockers.length} blocked.\n${action === "set" ? `ids: ${web.tasks.map((t) => t.id).join(", ") || "none"}` : `completed: ${completed.join(", ") || "none"}; newly unblocked: ${newlyUnblocked.map((t) => t.id).join(", ") || "none"}`}\nunblocked: ${
+    unblockedTasks(web)
+      .map((t) => t.id)
+      .join(", ") || "none"
+  }; blockers: ${blockers.join("; ") || "none"}`;
 }
 
 function normalizeCompletionRequests(params: {
-	taskId?: string;
-	completions?: unknown;
+  taskId?: string;
+  completions?: unknown;
 }): { completions: CompletionRequest[]; errors: string[] } {
-	const completions: CompletionRequest[] = [];
-	const errors: string[] = [];
+  const completions: CompletionRequest[] = [];
+  const errors: string[] = [];
 
-	if (params.taskId !== undefined) {
-		completions.push({
-			id: typeof params.taskId === "string" ? params.taskId.trim() : "",
-		});
-	}
+  if (params.taskId !== undefined) {
+    completions.push({
+      id: typeof params.taskId === "string" ? params.taskId.trim() : "",
+    });
+  }
 
-	if (params.completions !== undefined) {
-		if (!Array.isArray(params.completions)) errors.push("completions must be an array");
-		else for (let i = 0; i < params.completions.length; i++) {
-			const item = params.completions[i];
-			if (!item || typeof item !== "object" || Array.isArray(item)) {
-				errors.push(`completions[${i}] must be an object`);
-				continue;
-			}
-			const c = item as Record<string, unknown>;
-			completions.push({
-				id: typeof c.id === "string" ? c.id.trim() : "",
-			});
-		}
-	}
+  if (params.completions !== undefined) {
+    if (!Array.isArray(params.completions))
+      errors.push("completions must be an array");
+    else
+      for (let i = 0; i < params.completions.length; i++) {
+        const item = params.completions[i];
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+          errors.push(`completions[${i}] must be an object`);
+          continue;
+        }
+        const c = item as Record<string, unknown>;
+        completions.push({
+          id: typeof c.id === "string" ? c.id.trim() : "",
+        });
+      }
+  }
 
-	if (!completions.length) errors.push("action=complete requires either taskId or completions[].");
-	const seen = new Set<string>();
-	for (let i = 0; i < completions.length; i++) {
-		const c = completions[i];
-		if (!c.id) errors.push(`completion ${i + 1} is missing id/taskId`);
-		if (c.id && seen.has(c.id)) errors.push(`duplicate completion for task id: ${c.id}`);
-		if (c.id) seen.add(c.id);
-	}
-	return { completions, errors };
+  if (!completions.length)
+    errors.push("action=complete requires either taskId or completions[].");
+  const seen = new Set<string>();
+  for (let i = 0; i < completions.length; i++) {
+    const c = completions[i];
+    if (!c.id) errors.push(`completion ${i + 1} is missing id/taskId`);
+    if (c.id && seen.has(c.id))
+      errors.push(`duplicate completion for task id: ${c.id}`);
+    if (c.id) seen.add(c.id);
+  }
+  return { completions, errors };
 }
 
 class TodoWebComponent {
-	constructor(private state: TodoState, private theme: Theme, private onClose: () => void) {}
-	handleInput(data: string): void {
-		if (matchesKey(data, "escape") || matchesKey(data, "ctrl+c")) this.onClose();
-	}
-	render(width: number): string[] {
-		return renderTodoWebLines(this.state, this.theme, width, ["Press Escape to close"]);
-	}
-	invalidate(): void {}
+  constructor(
+    private state: TodoState,
+    private theme: Theme,
+    private onClose: () => void,
+  ) {}
+  handleInput(data: string): void {
+    if (matchesKey(data, "escape") || matchesKey(data, "ctrl+c"))
+      this.onClose();
+  }
+  render(width: number): string[] {
+    return renderTodoWebLines(this.state, this.theme, width, [
+      "Press Escape to close",
+    ]);
+  }
+  invalidate(): void {}
 }
 
-function renderTodoWebLines(state: TodoState, theme: Theme, width: number, footer: string[]): string[] {
-	const th = theme;
-	const web = state.web;
-	const lines: string[] = ["", th.fg("accent", " Todo Web "), ""];
-	if (!web) lines.push(th.fg("dim", "No todo web yet."));
-	else {
-		lines.push(th.fg("text", web.title));
-		lines.push(th.fg("muted", `${web.tasks.filter((t) => t.status === "completed").length}/${web.tasks.length} completed · ${unblockedTasks(web).length} unblocked · ${blockedTasks(web).length} blocked`));
-		lines.push("");
-		for (const t of web.tasks) {
-			const mark = t.status === "completed" ? th.fg("success", "✓") : isUnblocked(t, web) ? th.fg("warning", "○") : th.fg("dim", "⊘");
-			const rel = relationText(t, web);
-			lines.push(`${mark} ${th.fg("accent", `${t.id}:`)} ${th.fg(t.status === "completed" ? "dim" : "text", t.title)} ${th.fg("muted", `[${t.status}]`)}`);
-			lines.push(th.fg("dim", `  ${t.description}`));
-			lines.push(th.fg("dim", `  deps: ${rel.deps}`));
-			lines.push(th.fg("dim", `  unlocks: ${rel.unlocks}`));
-			if (t.acceptanceCriteria.length) lines.push(th.fg("dim", `  acceptance: ${t.acceptanceCriteria.join("; ")}`));
-			if (t.notes.length) lines.push(th.fg("dim", `  notes: ${t.notes.join("; ")}`));
-		}
-	}
-	if (footer.length) lines.push("", ...footer.map((l) => th.fg("dim", l)));
-	return lines.map((l) => truncateToWidth(l, width));
+function renderTodoWebLines(
+  state: TodoState,
+  theme: Theme,
+  width: number,
+  footer: string[],
+): string[] {
+  const th = theme;
+  const web = state.web;
+  const lines: string[] = ["", th.fg("accent", " Todo Web "), ""];
+  if (!web) lines.push(th.fg("dim", "No todo web yet."));
+  else {
+    lines.push(th.fg("text", web.title));
+    lines.push(
+      th.fg(
+        "muted",
+        `${web.tasks.filter((t) => t.status === "completed").length}/${web.tasks.length} completed · ${unblockedTasks(web).length} unblocked · ${blockedTasks(web).length} blocked`,
+      ),
+    );
+    lines.push("");
+    for (const t of web.tasks) {
+      const mark =
+        t.status === "completed"
+          ? th.fg("success", "✓")
+          : isUnblocked(t, web)
+            ? th.fg("warning", "○")
+            : th.fg("dim", "⊘");
+      const rel = relationText(t, web);
+      lines.push(
+        `${mark} ${th.fg("accent", `${t.id}:`)} ${th.fg(t.status === "completed" ? "dim" : "text", t.title)} ${th.fg("muted", `[${t.status}]`)}`,
+      );
+      lines.push(th.fg("dim", `  ${t.description}`));
+      lines.push(th.fg("dim", `  deps: ${rel.deps}`));
+      lines.push(th.fg("dim", `  unlocks: ${rel.unlocks}`));
+      if (t.acceptanceCriteria.length)
+        lines.push(
+          th.fg("dim", `  acceptance: ${t.acceptanceCriteria.join("; ")}`),
+        );
+      if (t.notes.length)
+        lines.push(th.fg("dim", `  notes: ${t.notes.join("; ")}`));
+    }
+  }
+  if (footer.length) lines.push("", ...footer.map((l) => th.fg("dim", l)));
+  return lines.map((l) => truncateToWidth(l, width));
 }
 
 export default function todoExtension(pi: ExtensionAPI): void {
-	let state: TodoState = {};
+  let state: TodoState = {};
 
-	function persist(action: string, extra: Partial<TodoState> = {}) {
-		pi.appendEntry("todo-web-state", { ...state, ...extra, lastAction: action });
-	}
+  function persist(action: string, extra: Partial<TodoState> = {}) {
+    pi.appendEntry(
+      "todo-web-state",
+      JSON.parse(JSON.stringify({ ...state, ...extra, lastAction: action })),
+    );
+  }
 
-	function reconstruct(ctx: ExtensionContext) {
-		state = {};
-		for (const entry of ctx.sessionManager.getBranch()) {
-			if (entry.type === "message" && entry.message.role === "toolResult" && entry.message.toolName === "todo_web") {
-				const d = entry.message.details as TodoState | undefined;
-				if (d) state = { ...state, ...d, web: cloneWeb(d.web) };
-			}
-			if (entry.type === "custom" && entry.customType === "todo-web-state") {
-				const d = entry.data as TodoState | undefined;
-				if (d) state = { ...state, ...d, web: cloneWeb(d.web) };
-			}
-		}
-	}
+  function reconstruct(ctx: ExtensionContext) {
+    state = {};
+    for (const entry of ctx.sessionManager.getBranch()) {
+      if (
+        entry.type === "message" &&
+        entry.message.role === "toolResult" &&
+        entry.message.toolName === "todo_web"
+      ) {
+        const d = entry.message.details as TodoState | undefined;
+        if (d) state = { ...state, ...d, web: cloneWeb(d.web) };
+      }
+      if (entry.type === "custom" && entry.customType === "todo-web-state") {
+        const d = entry.data as TodoState | undefined;
+        if (d) state = { ...state, ...d, web: cloneWeb(d.web) };
+      }
+    }
+  }
 
-	function systemCreatePrompt(userPrompt?: string): string {
-		return `Create or revise a dependency-aware todo web for the user's large task. Call todo_web with action=set and a full JSON web, then immediately execute it without waiting for user approval. If you omit a task status, todo_web will treat it as pending.\n\nSchema:\n{\n  "title": "string",\n  "tasks": [{\n    "id": "stable-short-id",\n    "title": "string",\n    "description": "string",\n    "acceptanceCriteria": ["string"],\n    "notes": ["string"],\n    "dependencies": ["task-id"],\n    "status": "pending"\n  }]\n}\n\nRules: every task must have a non-empty title/name and description; dependencies are task ids that must be completed before the task is unblocked; use only statuses pending/in_progress/completed; avoid cycles; make tasks small enough to complete one at a time.${userPrompt ? `\n\nUser prompt for this todo web:\n${userPrompt}` : ""}`;
-	}
+  function systemCreatePrompt(userPrompt?: string): string {
+    return `Create or revise a dependency-aware todo web for the user's large task. Call todo_web with action=set and a full JSON web, then immediately execute it without waiting for user approval. If you omit a task status, todo_web will treat it as pending.\n\nSchema:\n{\n  "title": "string",\n  "tasks": [{\n    "id": "stable-short-id",\n    "title": "string",\n    "description": "string",\n    "acceptanceCriteria": ["string"],\n    "notes": ["string"],\n    "dependencies": ["task-id"],\n    "status": "pending"\n  }]\n}\n\nRules: every task must have a non-empty title/name and description; dependencies are task ids that must be completed before the task is unblocked; use only statuses pending/in_progress/completed; avoid cycles; make tasks small enough to complete one at a time.${userPrompt ? `\n\nUser prompt for this todo web:\n${userPrompt}` : ""}`;
+  }
 
-	function runPrompt(): string {
-		return `Run the todo web. Choose currently unblocked non-completed task(s) from the todo_web state. You may execute independent unblocked tasks in parallel when safe. After completing task work, call todo_web with action=complete and either taskId for one task or completions: [{ id }] for multiple parallel completions. Continue until all tasks are completed or no unblocked tasks remain.`;
-	}
+  function runPrompt(): string {
+    return `Run the todo web. Choose currently unblocked non-completed task(s) from the todo_web state. You may execute independent unblocked tasks in parallel when safe. After completing task work, call todo_web with action=complete and either taskId for one task or completions: [{ id }] for multiple parallel completions. Continue until all tasks are completed or no unblocked tasks remain.`;
+  }
 
-	pi.on("session_start", async (_event, ctx) => reconstruct(ctx));
-	pi.on("session_tree", async (_event, ctx) => reconstruct(ctx));
+  // Persist one append-only context message per checkpoint, never a changing system prefix.
+  function projectCheckpoint(ctx: ExtensionContext) {
+    const branch = ctx.sessionManager.getBranch();
+    const checkpoint = [...branch]
+      .reverse()
+      .find(
+        (entry) =>
+          entry.type === "compaction" || entry.type === "branch_summary",
+      );
+    if (
+      !checkpoint ||
+      !state.web ||
+      !state.web.tasks.some((t) => t.status !== "completed")
+    )
+      return;
+    if (
+      branch
+        .slice(branch.indexOf(checkpoint) + 1)
+        .some(
+          (entry) =>
+            entry.type === "custom_message" &&
+            entry.customType === "todo-web-snapshot" &&
+            (entry.details as { checkpointId?: string })?.checkpointId ===
+              checkpoint.id,
+        )
+    )
+      return;
+    pi.sendMessage(
+      {
+        customType: "todo-web-snapshot",
+        content: compactSnapshot(state.web),
+        display: false,
+        details: { checkpointId: checkpoint.id },
+      },
+      { triggerTurn: false },
+    );
+  }
 
+  pi.on("session_start", async (_event, ctx) => {
+    reconstruct(ctx);
+    projectCheckpoint(ctx);
+  });
+  pi.on("session_tree", async (_event, ctx) => {
+    reconstruct(ctx);
+    projectCheckpoint(ctx);
+  });
+  pi.on("session_compact", async (_event, ctx) => {
+    reconstruct(ctx);
+    projectCheckpoint(ctx);
+  });
 
-	pi.registerTool({
-		name: "todo_web",
-		label: "Todo Web",
-		description: "Create, inspect, clear, or complete one or more tasks in a branch-aware dependency todo web. Created tasks are ready to execute immediately and require names/titles and descriptions; completion supports parallel task batches by id.",
-		promptSnippet: "Manage the branch-local dependency todo web for large tasks.",
-		promptGuidelines: [
-			"Use todo_web action=set to create or revise the full todo web before executing large tasks.",
-			"Use todo_web action=complete immediately after completing unblocked task work.",
-			"Use todo_web action=complete with completions: [{ id }] to record multiple independent unblocked tasks completed in parallel.",
-		],
-		parameters: TodoWebParams,
-		async execute(_id, params) {
-			if (params.action === "get") {
-				return { content: [{ type: "text", text: formatWeb(state.web) }], details: { ...state, lastAction: "get" } satisfies TodoState };
-			}
-			if (params.action === "clear") {
-				state = {};
-				return { content: [{ type: "text", text: "Todo web cleared." }], details: { ...state, lastAction: "clear" } satisfies TodoState };
-			}
-			if (params.action === "set") {
-				const result = validateAndNormalizeWeb(params.web);
-				if (!result.web) {
-					const error = `Invalid todo web:\n${result.errors.map((e) => `- ${e}`).join("\n")}`;
-					return { content: [{ type: "text", text: error }], details: { ...state, error, lastAction: "set" } satisfies TodoState };
-				}
-				state = { web: result.web, lastAction: "set" };
-				return { content: [{ type: "text", text: `Todo web parsed and ready to execute.\n\n${formatWeb(state.web)}\n\nImmediately begin the currently unblocked task(s); do not wait for user approval.` }], details: { ...state } satisfies TodoState };
-			}
-			if (params.action === "complete") {
-				if (!state.web) return { content: [{ type: "text", text: "No todo web exists." }], details: { ...state, error: "no web", lastAction: "complete" } satisfies TodoState };
-				const normalized = normalizeCompletionRequests(params);
-				if (normalized.errors.length) {
-					const error = `Invalid completion request:\n${normalized.errors.map((e) => `- ${e}`).join("\n")}`;
-					return { content: [{ type: "text", text: error }], details: { ...state, error, lastAction: "complete" } satisfies TodoState };
-				}
+  pi.registerTool({
+    name: "todo_web",
+    label: "Todo Web",
+    description:
+      "Create, inspect, clear, or complete one or more tasks in a branch-aware dependency todo web. Created tasks are ready to execute immediately and require names/titles and descriptions; completion supports parallel task batches by id.",
+    promptSnippet:
+      "Manage the branch-local dependency todo web for large tasks.",
+    promptGuidelines: [
+      "Use todo_web action=set to create or revise the full todo web before executing large tasks.",
+      "Use todo_web action=complete immediately after completing unblocked task work.",
+      "Use todo_web action=complete with completions: [{ id }] to record multiple independent unblocked tasks completed in parallel.",
+    ],
+    parameters: TodoWebParams,
+    async execute(_id, params) {
+      if (params.action === "get") {
+        return {
+          content: [{ type: "text", text: formatWeb(state.web) }],
+          details: structuredClone({
+            ...state,
+            lastAction: "get",
+          }) satisfies TodoState,
+        };
+      }
+      if (params.action === "clear") {
+        state = {};
+        persist("clear");
+        return {
+          content: [{ type: "text", text: "Todo web cleared." }],
+          details: { ...state, lastAction: "clear" } satisfies TodoState,
+        };
+      }
+      if (params.action === "set") {
+        const result = validateAndNormalizeWeb(params.web);
+        if (!result.web) {
+          const error = `Invalid todo web:\n${result.errors.map((e) => `- ${e}`).join("\n")}`;
+          return {
+            content: [{ type: "text", text: error }],
+            details: { ...state, error, lastAction: "set" } satisfies TodoState,
+          };
+        }
+        state = { web: result.web, lastAction: "set" };
+        persist("set");
+        return {
+          content: [{ type: "text", text: actionSummary("set", result.web) }],
+          details: structuredClone(state) satisfies TodoState,
+        };
+      }
+      if (params.action === "complete") {
+        if (!state.web)
+          return {
+            content: [{ type: "text", text: "No todo web exists." }],
+            details: {
+              ...state,
+              error: "no web",
+              lastAction: "complete",
+            } satisfies TodoState,
+          };
+        const normalized = normalizeCompletionRequests(params);
+        if (normalized.errors.length) {
+          const error = `Invalid completion request:\n${normalized.errors.map((e) => `- ${e}`).join("\n")}`;
+          return {
+            content: [{ type: "text", text: error }],
+            details: {
+              ...state,
+              error,
+              lastAction: "complete",
+            } satisfies TodoState,
+          };
+        }
 
-				const beforeUnblocked = new Set(unblockedTasks(state.web).map((t) => t.id));
-				const tasksToComplete: Array<{ task: TodoTask; completion: CompletionRequest }> = [];
-				const validationErrors: string[] = [];
-				for (const completion of normalized.completions) {
-					const task = state.web.tasks.find((t) => t.id === completion.id);
-					if (!task) {
-						validationErrors.push(`Task ${completion.id} not found.`);
-						continue;
-					}
-					if (task.status !== "completed" && !beforeUnblocked.has(task.id)) validationErrors.push(`Task ${task.id}: ${task.title} is still blocked by incomplete dependencies: ${relationText(task, state.web).deps}`);
-					tasksToComplete.push({ task, completion });
-				}
-				if (validationErrors.length) {
-					const error = `Could not complete task batch:\n${validationErrors.map((e) => `- ${e}`).join("\n")}`;
-					return { content: [{ type: "text", text: error }], details: { ...state, error, lastAction: "complete" } satisfies TodoState };
-				}
+        const beforeUnblocked = new Set(
+          unblockedTasks(state.web).map((t) => t.id),
+        );
+        const tasksToComplete: Array<{
+          task: TodoTask;
+          completion: CompletionRequest;
+        }> = [];
+        const validationErrors: string[] = [];
+        for (const completion of normalized.completions) {
+          const task = state.web.tasks.find((t) => t.id === completion.id);
+          if (!task) {
+            validationErrors.push(`Task ${completion.id} not found.`);
+            continue;
+          }
+          if (task.status !== "completed" && !beforeUnblocked.has(task.id))
+            validationErrors.push(
+              `Task ${task.id}: ${task.title} is still blocked by incomplete dependencies: ${relationText(task, state.web).deps}`,
+            );
+          tasksToComplete.push({ task, completion });
+        }
+        if (validationErrors.length) {
+          const error = `Could not complete task batch:\n${validationErrors.map((e) => `- ${e}`).join("\n")}`;
+          return {
+            content: [{ type: "text", text: error }],
+            details: {
+              ...state,
+              error,
+              lastAction: "complete",
+            } satisfies TodoState,
+          };
+        }
 
-				for (const { task } of tasksToComplete) {
-					task.status = "completed";
-				}
-				const completedIds = tasksToComplete.map(({ task }) => task.id);
-				const nowUnblocked = unblockedTasks(state.web);
-				const newlyUnblocked = nowUnblocked.filter((t) => !beforeUnblocked.has(t.id));
-				const stillBlocked = blockedTasks(state.web);
-				state = { ...state, lastAction: "complete", lastCompletedTaskId: completedIds[completedIds.length - 1], lastCompletedTaskIds: completedIds, newlyUnblocked, stillBlocked, error: undefined };
-				const remaining = nowUnblocked.filter((t) => t.status !== "completed");
-				const completedText = tasksToComplete.map(({ task }) => `- ${task.id}: ${task.title}`).join("\n");
-				const text = `Completed ${completedIds.length} task${completedIds.length === 1 ? "" : "s"}:\n${completedText}\n\nNewly unblocked:\n${newlyUnblocked.length ? newlyUnblocked.map((t) => `- ${t.id}: ${t.title}`).join("\n") : "- none"}\n\nStill blocked:\n${stillBlocked.length ? stillBlocked.map((t) => `- ${t.id}: ${t.title} (deps: ${relationText(t, state.web!).deps})`).join("\n") : "- none"}\n\nFull todo web:\n${formatWeb(state.web)}\n\nNext: choose currently unblocked non-completed task(s) yourself. You may run independent unblocked tasks in parallel. Then call todo_web action=complete for every completed task. ${remaining.length ? `Currently unblocked: ${remaining.map((t) => `${t.id}: ${t.title}`).join("; ")}` : "No unblocked pending tasks remain."}`;
-				return { content: [{ type: "text", text }], details: { ...state } satisfies TodoState };
-			}
-			return { content: [{ type: "text", text: `Unknown action ${params.action}` }], details: { ...state, error: "unknown action" } satisfies TodoState };
-		},
-		renderCall(args, theme) {
-			let s = theme.fg("toolTitle", theme.bold("todo_web ")) + theme.fg("muted", args.action);
-			if (args.taskId) s += " " + theme.fg("accent", args.taskId);
-			if (Array.isArray(args.completions) && args.completions.length) s += " " + theme.fg("accent", args.completions.map((c: { id?: string }) => c.id).filter(Boolean).join(", "));
-			return new Text(s, 0, 0);
-		},
-		renderResult(result, _options, theme) {
-			const d = result.details as TodoState | undefined;
-			if (!d?.web) return new Text(theme.fg(d?.error ? "error" : "muted", d?.error ?? "No todo web"), 0, 0);
-			const done = d.web.tasks.filter((t) => t.status === "completed").length;
-			const unblocked = unblockedTasks(d.web);
-			const blocked = blockedTasks(d.web);
-			const lastCompleted = d.lastCompletedTaskIds?.length ? `\n${theme.fg("success", "completed: ")}${d.lastCompletedTaskIds.map((id) => taskLabel(d.web?.tasks.find((t) => t.id === id), id)).join(", ")}` : "";
-			const next = unblocked.length ? `\n${theme.fg("warning", "unblocked: ")}${unblocked.map((t) => `${t.id}: ${t.title}`).join(", ")}` : "";
-			const blockedLine = blocked.length ? `\n${theme.fg("muted", "blocked: ")}${blocked.map((t) => `${t.id}: ${t.title}`).join(", ")}` : "";
-			return new Text(`${theme.fg("accent", d.web.title)} ${theme.fg("muted", `${done}/${d.web.tasks.length} completed · ${unblocked.length} unblocked · ${blocked.length} blocked`)}${lastCompleted}${next}${blockedLine}`, 0, 0);
-		},
-	});
+        for (const { task } of tasksToComplete) {
+          task.status = "completed";
+        }
+        const completedIds = tasksToComplete.map(({ task }) => task.id);
+        const nowUnblocked = unblockedTasks(state.web);
+        const newlyUnblocked = nowUnblocked.filter(
+          (t) => !beforeUnblocked.has(t.id),
+        );
+        const stillBlocked = blockedTasks(state.web);
+        state = {
+          ...state,
+          lastAction: "complete",
+          lastCompletedTaskId: completedIds[completedIds.length - 1],
+          lastCompletedTaskIds: completedIds,
+          newlyUnblocked,
+          stillBlocked,
+          error: undefined,
+        };
+        persist("complete");
+        return {
+          content: [
+            {
+              type: "text",
+              text: actionSummary(
+                "complete",
+                state.web!,
+                completedIds,
+                newlyUnblocked,
+              ),
+            },
+          ],
+          details: structuredClone(state) satisfies TodoState,
+        };
+      }
+      return {
+        content: [{ type: "text", text: `Unknown action ${params.action}` }],
+        details: { ...state, error: "unknown action" } satisfies TodoState,
+      };
+    },
+    renderCall(args, theme) {
+      let s =
+        theme.fg("toolTitle", theme.bold("todo_web ")) +
+        theme.fg("muted", args.action);
+      if (args.taskId) s += " " + theme.fg("accent", args.taskId);
+      if (Array.isArray(args.completions) && args.completions.length)
+        s +=
+          " " +
+          theme.fg(
+            "accent",
+            args.completions
+              .map((c: { id?: string }) => c.id)
+              .filter(Boolean)
+              .join(", "),
+          );
+      return new Text(s, 0, 0);
+    },
+    renderResult(result, _options, theme) {
+      const d = result.details as TodoState | undefined;
+      if (!d?.web)
+        return new Text(
+          theme.fg(d?.error ? "error" : "muted", d?.error ?? "No todo web"),
+          0,
+          0,
+        );
+      const done = d.web.tasks.filter((t) => t.status === "completed").length;
+      const unblocked = unblockedTasks(d.web);
+      const blocked = blockedTasks(d.web);
+      const lastCompleted = d.lastCompletedTaskIds?.length
+        ? `\n${theme.fg("success", "completed: ")}${d.lastCompletedTaskIds
+            .map((id) =>
+              taskLabel(
+                d.web?.tasks.find((t) => t.id === id),
+                id,
+              ),
+            )
+            .join(", ")}`
+        : "";
+      const next = unblocked.length
+        ? `\n${theme.fg("warning", "unblocked: ")}${unblocked.map((t) => `${t.id}: ${t.title}`).join(", ")}`
+        : "";
+      const blockedLine = blocked.length
+        ? `\n${theme.fg("muted", "blocked: ")}${blocked.map((t) => `${t.id}: ${t.title}`).join(", ")}`
+        : "";
+      return new Text(
+        `${theme.fg("accent", d.web.title)} ${theme.fg("muted", `${done}/${d.web.tasks.length} completed · ${unblocked.length} unblocked · ${blocked.length} blocked`)}${lastCompleted}${next}${blockedLine}`,
+        0,
+        0,
+      );
+    },
+  });
 
-	pi.registerCommand("todo", {
-		description: "Create, run, show, or clear the branch-local todo web",
-		handler: async (_args, ctx) => {
-			reconstruct(ctx);
-			const choice = await ctx.ui.select("Todo", ["Create/revise and run todo web", "Run todo web", "Show current todo web", "Clear todo web"]);
-			if (choice === "Create/revise and run todo web") {
-				const prompt = await ctx.ui.input("Prompt for the agent", "Optional: describe what the todo web should cover or how to revise it");
-				if (prompt === undefined) return;
-				pi.sendUserMessage(systemCreatePrompt(prompt.trim() || undefined));
-			} else if (choice === "Run todo web") {
-				if (!state.web) return ctx.ui.notify("No todo web exists. Create one first.", "error");
-				pi.sendUserMessage(runPrompt());
-			} else if (choice === "Show current todo web") {
-				if (ctx.hasUI) await ctx.ui.custom<void>((_tui, theme, _kb, done) => new TodoWebComponent(state, theme, () => done()));
-				else ctx.ui.notify(formatWeb(state.web), "info");
-			} else if (choice === "Clear todo web") {
-				const ok = await ctx.ui.confirm("Clear todo web?", "This records a clear state on the current branch.");
-				if (ok) {
-					state = {};
-					persist("clear");
-					ctx.ui.notify("Todo web cleared.", "info");
-				}
-			}
-		},
-	});
+  pi.registerCommand("todo", {
+    description: "Create, run, show, or clear the branch-local todo web",
+    handler: async (_args, ctx) => {
+      reconstruct(ctx);
+      const choice = await ctx.ui.select("Todo", [
+        "Create/revise and run todo web",
+        "Run todo web",
+        "Show current todo web",
+        "Clear todo web",
+      ]);
+      if (choice === "Create/revise and run todo web") {
+        const prompt = await ctx.ui.input(
+          "Prompt for the agent",
+          "Optional: describe what the todo web should cover or how to revise it",
+        );
+        if (prompt === undefined) return;
+        pi.sendUserMessage(systemCreatePrompt(prompt.trim() || undefined));
+      } else if (choice === "Run todo web") {
+        if (!state.web)
+          return ctx.ui.notify(
+            "No todo web exists. Create one first.",
+            "error",
+          );
+        pi.sendUserMessage(runPrompt());
+      } else if (choice === "Show current todo web") {
+        if (ctx.hasUI)
+          await ctx.ui.custom<void>(
+            (_tui, theme, _kb, done) =>
+              new TodoWebComponent(state, theme, () => done()),
+          );
+        else ctx.ui.notify(formatWeb(state.web), "info");
+      } else if (choice === "Clear todo web") {
+        const ok = await ctx.ui.confirm(
+          "Clear todo web?",
+          "This records a clear state on the current branch.",
+        );
+        if (ok) {
+          state = {};
+          persist("clear");
+          ctx.ui.notify("Todo web cleared.", "info");
+        }
+      }
+    },
+  });
 }

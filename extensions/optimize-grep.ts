@@ -192,10 +192,7 @@ export default function optimizeGrep(pi: ExtensionAPI) {
   });
 
   pi.on("before_agent_start", async (event) => {
-    return {
-      systemPrompt:
-        event.systemPrompt +
-        "\n\nNote: terminal output from grep/find-style commands is optimized by grouping paths and grep-like matches.",
-    };
+    event.systemPromptOptions.sections.terminal_output =
+      "Note: terminal output from grep/find-style commands is optimized by grouping paths and grep-like matches.";
   });
 }
