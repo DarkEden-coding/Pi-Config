@@ -35,7 +35,7 @@ test("runtime resolves the running bundled CLI and a symlinked CLI on PATH", () 
 });
 
 test("loader imports SDK and native helpers from the selected runtime", async () => {
-  assert.ok(["0.99.1", "1.0.0"].includes(runtimeVersion));
+  assert.ok(["0.99.1", "1.0.0", "1.0.1"].includes(runtimeVersion));
   assert.equal(runtimeModuleUrl("@earendil-works/pi-coding-agent"), pathToFileURL(join(runtimeRoot, "dist/index.js")).href);
   const native = await import(runtimeModuleUrl("@earendil-works/pi-ai/utils/event-stream"));
   assert.equal(typeof native.AssistantMessageEventStream, "function");

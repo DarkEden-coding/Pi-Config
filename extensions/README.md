@@ -1,6 +1,6 @@
 # Shared Pi extensions
 
-Verified with Pi 0.99.1 on macOS and Pi 1.0.0 on Linux. CLIProxy transport discovers the running Pi installation and rejects unverified versions. Keep `pi` on PATH when running tests outside the CLI. Do not copy a macOS `node_modules` directory to Linux.
+Verified with Pi 0.99.1 on macOS and Pi 1.0.0 and 1.0.1 on Linux. CLIProxy transport discovers the running Pi installation and rejects unverified versions. Keep `pi` on PATH when running tests outside the CLI. Do not copy a macOS `node_modules` directory to Linux.
 
 `settings.json` selects the configured `cliproxy` provider. Its device-local `models.json` must retain the existing proxy URL, API key source and model definitions, with provider API `openai-codex-responses`. Credentials and generated npm dependencies are intentionally excluded from Git.
 

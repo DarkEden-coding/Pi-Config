@@ -28,8 +28,8 @@ export function resolveRuntimeRoot(): string {
 export const runtimeRoot = resolveRuntimeRoot();
 export const runtimeRequire = createRequire(join(runtimeRoot, "package.json"));
 export const runtimeVersion: string = runtimeRequire("./package.json").version;
-if (!["0.99.1", "1.0.0"].includes(runtimeVersion)) {
-  throw new Error(`CLIProxy transport has not been verified with Pi ${runtimeVersion}; supported: 0.99.1, 1.0.0.`);
+if (!["0.99.1", "1.0.0", "1.0.1"].includes(runtimeVersion)) {
+  throw new Error(`CLIProxy transport has not been verified with Pi ${runtimeVersion}; supported: 0.99.1, 1.0.0, 1.0.1.`);
 }
 
 /** Resolve from this Pi installation, not an unrelated global or extension dependency. */

@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.99.1",
+  "lastChangelogVersion": "1.0.1",
   "defaultProvider": "cliproxy",
   "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "medium",
@@ -20,7 +20,8 @@
   "extensions": [
     "-extensions/image-analysis-handoff.ts",
     "-extensions/manual-openrouter-model-entry.ts",
-    "-extensions/codex-everywhere.ts"
+    "-extensions/codex-everywhere.ts",
+    "-builtin:mcp"
   ],
   "steeringMode": "one-at-a-time",
   "followUpMode": "one-at-a-time",

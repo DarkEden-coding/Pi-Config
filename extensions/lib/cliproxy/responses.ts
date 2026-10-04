@@ -1,7 +1,7 @@
 /** CLIProxy-owned Pi 0.99.1 Codex transport. Upstream MIT, see LICENSE.
  * Native converters and parser remain runtime imports. Local changes: bearer auth,
  * /responses endpoint, scoped ws constructor, endpoint/key cache identity, safe retry.
- * Verified helper contracts on Pi 0.99.1 and 1.0.0; review other versions.
+ * Verified helper contracts on Pi 0.99.1, 1.0.0 and 1.0.1; review other versions.
  */
 import { createHash } from "node:crypto";
 import { runtimeRequire, importRuntime } from "./runtime.ts";
