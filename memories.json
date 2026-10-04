@@ -16,9 +16,9 @@
     },
     {
       "id": 3,
-      "text": "Parallel-agent usage: Do not use parallel agents frivolously; first assess whether parallelism provides meaningful benefit, and avoid patterns that unnecessarily increase agent usage, coordination, or cost. Use parallel_agents for genuinely independent work or when delegation materially improves quality/speed. Related tasks may be combined into one sub-agent task rather than split across multiple agents. When agents are appropriate, use gpt-5.6-luna for basic read-only file inspection, understanding code, summaries, and similarly lightweight tasks, generally at medium reasoning. Use gpt-5.6-sol for intensive or important audits, complex reasoning, and difficult code changes; for non-planning Sol tasks, use low reasoning by default because it is almost always sufficient. Use gpt-5.6-terra for work between those extremes and ordinary scoped implementation, choosing reasoning level based on task complexity. Read-only tasks must explicitly instruct the sub-agent never to edit files, mutate the repository, or perform other state-changing actions. For editing tasks, assign non-overlapping files or directories to concurrent sub-agents.",
+      "text": "Use parallel agents when independent work materially improves speed or quality; combine related tasks and assign non-overlapping files to editing agents. Select from the current configured model list rather than hard-coded older names. Prefer Sol at low reasoning for implementation and substantial investigation; use higher reasoning only for genuinely deep planning. Read-only tasks must explicitly forbid edits and other state changes. Manage child approvals, completion, failure, and blockers when their steering notifications arrive, without routine polling; keep the existing approval policy.",
       "createdAt": "2026-07-11T02:32:25.380Z",
-      "updatedAt": "2026-07-25T15:51:50.737Z"
+      "updatedAt": "2026-10-03T01:33:55.772Z"
     },
     {
       "id": 4,
@@ -40,9 +40,9 @@
     },
     {
       "id": 7,
-      "text": "TypeScript is installed globally on this machine. For TypeScript validation, use the global `tsc` command (currently TypeScript 7.0.2) rather than `npx tsc`.",
+      "text": "For TypeScript validation, prefer an available global tsc command over npx tsc. If global TypeScript is absent, use the project's installed TypeScript compiler directly rather than downloading a compiler implicitly.",
       "createdAt": "2026-07-18T17:23:53.630Z",
-      "updatedAt": "2026-07-18T17:23:53.630Z"
+      "updatedAt": "2026-10-03T01:35:55.062Z"
     },
     {
       "id": 8,
@@ -55,12 +55,6 @@
       "text": "Use regular foreground terminal commands by default. Only use background terminal tools when the command genuinely needs to keep running while other work continues.",
       "createdAt": "2026-07-26T03:21:33.321Z",
       "updatedAt": "2026-07-26T03:21:33.321Z"
-    },
-    {
-      "id": 10,
-      "text": "When using the claude-opus parallel sub-agent, use low reasoning for all tasks except genuinely in-depth planning; reserve higher reasoning levels for in-depth planning only.",
-      "createdAt": "2026-07-27T19:38:05.210Z",
-      "updatedAt": "2026-07-27T19:38:05.210Z"
     },
     {
       "id": 11,

@@ -3486,7 +3486,6 @@
     {
       "kind": "structured",
       "rationale": "Allow read-only UTC timestamp queries.",
-      "value": null,
       "executable": "date",
       "argsPrefix": [
         "-u"
@@ -3500,7 +3499,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect system memory without modification",
-      "value": null,
       "executable": "free",
       "argsPrefix": [
         "-h"
@@ -3514,7 +3512,6 @@
     {
       "kind": "structured",
       "rationale": "Check the installed uv version",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "--version"
@@ -3528,7 +3525,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect graphical session environment variables",
-      "value": null,
       "executable": "printenv",
       "argsPrefix": [],
       "allowAdditionalArgs": true,
@@ -3540,7 +3536,6 @@
     {
       "kind": "structured",
       "rationale": "Run bounded read-only Python source-inspection scripts.",
-      "value": null,
       "executable": "python",
       "argsPrefix": [
         "-"
@@ -3555,9 +3550,6 @@
       "kind": "feature",
       "rationale": "Permit sequential diagnostic commands where each segment is independently allowed.",
       "value": "sequence",
-      "executable": null,
-      "argsPrefix": null,
-      "allowAdditionalArgs": null,
       "forbiddenArgs": [],
       "id": "c29480d1-941c-4fe8-a529-00d61aad2f50",
       "enabled": true,
@@ -3566,7 +3558,6 @@
     {
       "kind": "structured",
       "rationale": "Sync project dependencies using uv extras and dependency groups",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "sync"
@@ -3580,7 +3571,6 @@
     {
       "kind": "structured",
       "rationale": "Locate an executable on PATH without modifying files.",
-      "value": null,
       "executable": "which",
       "argsPrefix": [],
       "allowAdditionalArgs": true,
@@ -3592,7 +3582,6 @@
     {
       "kind": "structured",
       "rationale": "Run local Python diagnostics that inspect media metadata without modifying files.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -3609,7 +3598,6 @@
     {
       "kind": "structured",
       "rationale": "Run local inline Python diagnostics through uv without syncing dependencies.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -3626,7 +3614,6 @@
     {
       "kind": "structured",
       "rationale": "Run local media-library diagnostics without syncing dependencies.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -3642,7 +3629,6 @@
     {
       "kind": "structured",
       "rationale": "Use Ruff's fix mode to apply routine lint corrections to specified project files.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -3660,7 +3646,6 @@
     {
       "kind": "structured",
       "rationale": "Run targeted standard-library project tests through uv without syncing dependencies.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -3678,7 +3663,6 @@
     {
       "kind": "structured",
       "rationale": "Reinstall a specified Python package with uv without pulling dependencies.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "pip",
@@ -3695,7 +3679,6 @@
     {
       "kind": "structured",
       "rationale": "Convert local media files without destructive system operations",
-      "value": null,
       "executable": "ffmpeg",
       "argsPrefix": [
         "-v",
@@ -3714,7 +3697,6 @@
     {
       "kind": "structured",
       "rationale": "Run local verification scripts through uv without syncing dependencies.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -3730,7 +3712,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect running process and resource information safely.",
-      "value": null,
       "executable": "ps",
       "argsPrefix": [
         "-o"
@@ -3744,7 +3725,6 @@
     {
       "kind": "structured",
       "rationale": "Read the number of available processors.",
-      "value": null,
       "executable": "nproc",
       "argsPrefix": [],
       "allowAdditionalArgs": true,
@@ -3756,7 +3736,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect filesystem capacity without modification.",
-      "value": null,
       "executable": "df",
       "argsPrefix": [
         "-h"
@@ -3770,7 +3749,6 @@
     {
       "kind": "structured",
       "rationale": "Format project files with Ruff.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -3787,7 +3765,6 @@
     {
       "kind": "structured",
       "rationale": "Run targeted project tests without syncing dependencies.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -3803,7 +3780,6 @@
     {
       "kind": "structured",
       "rationale": "Run Ruff lint checks without syncing dependencies.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -3820,7 +3796,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect command-line help safely.",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "--help"
@@ -3834,7 +3809,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect screenshot utility help safely.",
-      "value": null,
       "executable": "spectacle",
       "argsPrefix": [
         "--help"
@@ -3848,7 +3822,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect running processes safely.",
-      "value": null,
       "executable": "ps",
       "argsPrefix": [
         "-eo"
@@ -3862,7 +3835,6 @@
     {
       "kind": "structured",
       "rationale": "Filter diagnostic process output.",
-      "value": null,
       "executable": "rg",
       "argsPrefix": [],
       "allowAdditionalArgs": true,
@@ -3875,9 +3847,6 @@
       "kind": "feature",
       "rationale": "Permit a pipe between independently allowed diagnostic commands.",
       "value": "pipe",
-      "executable": null,
-      "argsPrefix": null,
-      "allowAdditionalArgs": null,
       "forbiddenArgs": [],
       "id": "6dc37b30-436b-4a72-960f-2e5fe1071017",
       "enabled": true,
@@ -3886,7 +3855,6 @@
     {
       "kind": "structured",
       "rationale": "Search window titles for UI inspection without changing windows.",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "search"
@@ -3900,7 +3868,6 @@
     {
       "kind": "structured",
       "rationale": "Read display geometry for UI inspection.",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "getdisplaygeometry"
@@ -3914,7 +3881,6 @@
     {
       "kind": "structured",
       "rationale": "Capture a bounded screenshot for local UI review.",
-      "value": null,
       "executable": "spectacle",
       "argsPrefix": [
         "-a"
@@ -3929,9 +3895,6 @@
       "kind": "feature",
       "rationale": "Permit output redirection within a reviewed local source-editing script.",
       "value": "redirect",
-      "executable": null,
-      "argsPrefix": null,
-      "allowAdditionalArgs": null,
       "forbiddenArgs": [],
       "id": "5d2cfbc8-a004-4991-ad57-7f851845878c",
       "enabled": true,
@@ -3940,7 +3903,6 @@
     {
       "kind": "structured",
       "rationale": "Run Ruff lint fixes on specified project files.",
-      "value": null,
       "executable": "ruff",
       "argsPrefix": [
         "check",
@@ -3955,7 +3917,6 @@
     {
       "kind": "structured",
       "rationale": "Format specified project files with Ruff.",
-      "value": null,
       "executable": "ruff",
       "argsPrefix": [
         "format"
@@ -3969,7 +3930,6 @@
     {
       "kind": "structured",
       "rationale": "Append source text to project tests for development.",
-      "value": null,
       "executable": "cat",
       "argsPrefix": [
         ">>"
@@ -3983,7 +3943,6 @@
     {
       "kind": "structured",
       "rationale": "Run Pyright static type checks.",
-      "value": null,
       "executable": "pyright",
       "argsPrefix": [],
       "allowAdditionalArgs": true,
@@ -3995,7 +3954,6 @@
     {
       "kind": "structured",
       "rationale": "Run local inline Python UI diagnostics without syncing dependencies.",
-      "value": null,
       "executable": "QT_QPA_PLATFORM=offscreen",
       "argsPrefix": [],
       "allowAdditionalArgs": true,
@@ -4007,7 +3965,6 @@
     {
       "kind": "structured",
       "rationale": "Run Ruff lint checks.",
-      "value": null,
       "executable": "ruff",
       "argsPrefix": [
         "check"
@@ -4021,7 +3978,6 @@
     {
       "kind": "structured",
       "rationale": "Activate a visible application window for local UI testing.",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "windowactivate"
@@ -4035,7 +3991,6 @@
     {
       "kind": "structured",
       "rationale": "Perform local GUI mouse and keyboard interactions for UI testing.",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "mousemove"
@@ -4049,7 +4004,6 @@
     {
       "kind": "structured",
       "rationale": "Perform local GUI keyboard interactions for UI testing.",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "key"
@@ -4063,7 +4017,6 @@
     {
       "kind": "structured",
       "rationale": "Pause briefly during local UI testing.",
-      "value": null,
       "executable": "sleep",
       "argsPrefix": [],
       "allowAdditionalArgs": true,
@@ -4075,7 +4028,6 @@
     {
       "kind": "structured",
       "rationale": "Type test input into local UI controls.",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "type"
@@ -4089,7 +4041,6 @@
     {
       "kind": "structured",
       "rationale": "Capture a window screenshot to a specified local output file.",
-      "value": null,
       "executable": "spectacle",
       "argsPrefix": [
         "-a",
@@ -4106,7 +4057,6 @@
     {
       "kind": "structured",
       "rationale": "Select a window from bounded window-search output.",
-      "value": null,
       "executable": "head",
       "argsPrefix": [],
       "allowAdditionalArgs": true,
@@ -4118,7 +4068,6 @@
     {
       "kind": "structured",
       "rationale": "Run window-targeted local GUI mouse interactions for UI testing.",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "mousemove",
@@ -4133,7 +4082,6 @@
     {
       "kind": "structured",
       "rationale": "Save the current document through the local application's keyboard shortcut.",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "key",
@@ -4148,7 +4096,6 @@
     {
       "kind": "structured",
       "rationale": "Quit the local application through its keyboard shortcut after verification.",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "key",
@@ -4164,10 +4111,6 @@
       "kind": "exact",
       "rationale": "Enable fail-fast shell behavior",
       "value": "set -e",
-      "executable": null,
-      "argsPrefix": null,
-      "allowAdditionalArgs": null,
-      "forbiddenArgs": null,
       "id": "a8a8a5e8-2db4-4c95-973c-38c2982a19d1",
       "enabled": true,
       "createdAt": "2026-10-01T23:45:21.725Z"
@@ -4175,7 +4118,6 @@
     {
       "kind": "structured",
       "rationale": "Capture the selected visible application window for local UI testing",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "windowactivate",
@@ -4190,7 +4132,6 @@
     {
       "kind": "structured",
       "rationale": "Resize a visible application window for local UI review.",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "windowsize"
@@ -4204,7 +4145,6 @@
     {
       "kind": "structured",
       "rationale": "Read geometry of a selected application window.",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "getwindowgeometry",
@@ -4219,7 +4159,6 @@
     {
       "kind": "structured",
       "rationale": "Run Ruff formatting validation without modifying files.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -4237,7 +4176,6 @@
     {
       "kind": "structured",
       "rationale": "Enable fail-fast behavior in harmless local UI checks.",
-      "value": null,
       "executable": "set",
       "argsPrefix": [
         "-e"
@@ -4251,7 +4189,6 @@
     {
       "kind": "structured",
       "rationale": "Perform local GUI mouse button clicks for UI testing.",
-      "value": null,
       "executable": "xdotool",
       "argsPrefix": [
         "click"
@@ -4265,7 +4202,6 @@
     {
       "kind": "structured",
       "rationale": "Clone source repositories without executing their contents.",
-      "value": null,
       "executable": "git",
       "argsPrefix": [
         "clone"
@@ -4280,9 +4216,6 @@
       "kind": "feature",
       "rationale": "Permit sequential read-only diagnostic commands whose segments are independently allowed.",
       "value": "and",
-      "executable": null,
-      "argsPrefix": null,
-      "allowAdditionalArgs": null,
       "forbiddenArgs": [],
       "id": "a08d70ae-f3e9-4af3-863c-0ea15fa8e96b",
       "enabled": true,
@@ -4291,7 +4224,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect source files with numbered lines without modifying them.",
-      "value": null,
       "executable": "nl",
       "argsPrefix": [
         "-ba"
@@ -4305,7 +4237,6 @@
     {
       "kind": "structured",
       "rationale": "Run project Ruff checks through uv.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -4321,7 +4252,6 @@
     {
       "kind": "structured",
       "rationale": "Format specified project files with Ruff.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -4337,7 +4267,6 @@
     {
       "kind": "structured",
       "rationale": "Run targeted pytest suite through uv.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -4352,7 +4281,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect matching running processes without modifying them.",
-      "value": null,
       "executable": "pgrep",
       "argsPrefix": [
         "-af"
@@ -4366,7 +4294,6 @@
     {
       "kind": "structured",
       "rationale": "Check that the uv lockfile is consistent without modifying dependencies.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "lock",
@@ -4381,7 +4308,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect Tailscale connectivity status without modifying configuration.",
-      "value": null,
       "executable": "tailscale",
       "argsPrefix": [
         "status"
@@ -4395,7 +4321,6 @@
     {
       "kind": "structured",
       "rationale": "Filter user environment diagnostics for selected variables.",
-      "value": null,
       "executable": "grep",
       "argsPrefix": [
         "-E"
@@ -4409,7 +4334,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect the user systemd environment without changing it.",
-      "value": null,
       "executable": "systemctl",
       "argsPrefix": [
         "--user",
@@ -4424,7 +4348,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect installed Python packages via uv.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "pip",
@@ -4439,7 +4362,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect Tailscale serve configuration without modifying it.",
-      "value": null,
       "executable": "tailscale",
       "argsPrefix": [
         "serve",
@@ -4454,7 +4376,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect whether a user has login lingering enabled.",
-      "value": null,
       "executable": "loginctl",
       "argsPrefix": [
         "show-user"
@@ -4468,7 +4389,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect TCP listening sockets without modifying system state.",
-      "value": null,
       "executable": "ss",
       "argsPrefix": [
         "-ltn"
@@ -4482,7 +4402,6 @@
     {
       "kind": "structured",
       "rationale": "Add project dependencies through uv.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "add"
@@ -4496,7 +4415,6 @@
     {
       "kind": "structured",
       "rationale": "Run inline Python diagnostics through uv.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -4512,7 +4430,6 @@
     {
       "kind": "structured",
       "rationale": "Inspect available FFmpeg encoders without modifying files.",
-      "value": null,
       "executable": "ffmpeg",
       "argsPrefix": [
         "-hide_banner",
@@ -4527,7 +4444,6 @@
     {
       "kind": "structured",
       "rationale": "Check whether an executable is available on PATH.",
-      "value": null,
       "executable": "command",
       "argsPrefix": [
         "-v"
@@ -4541,7 +4457,6 @@
     {
       "kind": "structured",
       "rationale": "Generate a bounded synthetic video for local media diagnostics.",
-      "value": null,
       "executable": "ffmpeg",
       "argsPrefix": [
         "-hide_banner",
@@ -4557,7 +4472,6 @@
     {
       "kind": "structured",
       "rationale": "Run Ruff lint checks using uvx.",
-      "value": null,
       "executable": "uvx",
       "argsPrefix": [
         "ruff",
@@ -4572,7 +4486,6 @@
     {
       "kind": "structured",
       "rationale": "Format specified project files using Ruff through uvx.",
-      "value": null,
       "executable": "uvx",
       "argsPrefix": [
         "ruff",
@@ -4587,7 +4500,6 @@
     {
       "kind": "structured",
       "rationale": "Compile Python modules for syntax validation through uv.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -4604,7 +4516,6 @@
     {
       "kind": "structured",
       "rationale": "Run the local project web viewer with uv.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run",
@@ -4620,7 +4531,6 @@
     {
       "kind": "structured",
       "rationale": "Check Ruff formatting via uvx without modifying files.",
-      "value": null,
       "executable": "uvx",
       "argsPrefix": [
         "ruff",
@@ -4636,7 +4546,6 @@
     {
       "kind": "structured",
       "rationale": "Run the project's test script through uv.",
-      "value": null,
       "executable": "uv",
       "argsPrefix": [
         "run"
@@ -4659,6 +4568,1667 @@
       "id": "6a6a3d04-e21d-4952-b2a6-ea40535baeca",
       "enabled": true,
       "createdAt": "2026-10-04T00:54:16.217Z"
+    },
+    {
+      "kind": "feature",
+      "rationale": "Sequence independently safe inspection commands.",
+      "value": "sequence",
+      "id": "27120602-e668-4c3d-9d69-44e224903795",
+      "enabled": true,
+      "createdAt": "2026-09-30T14:38:35.594Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Search source text with ripgrep.",
+      "executable": "rg",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "3e86c8a4-cf35-4b6b-bda9-d0b35f009cee",
+      "enabled": true,
+      "createdAt": "2026-09-30T14:38:35.594Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Resolve an executable location without modifying files.",
+      "executable": "which",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "1fbc1eeb-5bde-4654-ba10-1ca8dd7e034f",
+      "enabled": true,
+      "createdAt": "2026-09-30T14:38:35.594Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Permit inline Python scripts for focused project source edits that do not perform severe destructive actions.",
+      "executable": "python3",
+      "argsPrefix": [
+        "-"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "f2b9304e-6dce-4284-9b83-01bbc39e1d04",
+      "enabled": true,
+      "createdAt": "2026-09-30T14:50:40.908Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run targeted Vitest tests without modifying source files.",
+      "executable": "npx",
+      "argsPrefix": [
+        "vitest",
+        "run"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "8af2e08d-72f6-473d-8717-bc5611f149cc",
+      "enabled": true,
+      "createdAt": "2026-09-30T14:58:29.639Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Format project source files.",
+      "executable": "npx",
+      "argsPrefix": [
+        "prettier",
+        "--write"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "1224358a-858f-4efa-8b20-72ccad1afe63",
+      "enabled": true,
+      "createdAt": "2026-09-30T14:59:49.559Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect a scoped Git diff.",
+      "executable": "git",
+      "argsPrefix": [
+        "diff"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "9b2c8adc-d83e-4d6a-8f0d-bbfe260b5b0b",
+      "enabled": true,
+      "createdAt": "2026-09-30T15:01:00.289Z"
+    },
+    {
+      "kind": "feature",
+      "rationale": "Redirect inspection output to a temporary file.",
+      "value": "redirect",
+      "id": "c1b98cd0-7ecc-47f4-b3d5-2532b9845993",
+      "enabled": true,
+      "createdAt": "2026-09-30T15:01:00.289Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Report npm's global package root.",
+      "executable": "npm",
+      "argsPrefix": [
+        "root",
+        "-g"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "5ee5115d-a41e-47c3-8b5b-204ff16cb879",
+      "enabled": true,
+      "createdAt": "2026-09-30T15:01:00.289Z"
+    },
+    {
+      "kind": "feature",
+      "rationale": "Sequence independently safe inspection commands.",
+      "value": "sequence",
+      "forbiddenArgs": [],
+      "id": "9629f3f2-eef6-4d89-aa7c-a7a79cf0266a",
+      "enabled": true,
+      "createdAt": "2026-09-30T15:01:00.289Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the local development server for the project.",
+      "executable": "npm",
+      "argsPrefix": [
+        "run",
+        "dev"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "2a2dbc3b-5c2b-40a9-983a-123e5f17b544",
+      "enabled": true,
+      "createdAt": "2026-09-30T15:05:50.174Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the local Vite development server for the project.",
+      "executable": "vite",
+      "argsPrefix": [
+        "--host"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "22e8899b-94f3-4e25-a90a-3e939826f1b2",
+      "enabled": true,
+      "createdAt": "2026-09-30T15:06:17.354Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the local Vite development server for the project.",
+      "executable": "vite",
+      "argsPrefix": [
+        "--host",
+        "127.0.0.1"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "92428bbe-b22d-459f-96f5-5535b4cb39c2",
+      "enabled": true,
+      "createdAt": "2026-09-30T15:06:17.354Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Format local project source files with Prettier.",
+      "executable": "prettier",
+      "argsPrefix": [
+        "--write"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "bb7cb6ab-42d1-440c-a164-fb70158c6fed",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:28:12.660Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the TypeScript compiler without emitting files.",
+      "executable": "tsc",
+      "argsPrefix": [
+        "--noEmit"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "ca18aa01-99a2-4eb6-8cbe-d67620e9932e",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:28:12.660Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run ESLint checks on project files.",
+      "executable": "eslint",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "0d9c696d-41ea-48e5-8f57-4d494984651a",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:28:12.660Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run targeted Vitest tests without modifying source files.",
+      "executable": "vitest",
+      "argsPrefix": [
+        "run"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "4df40e97-e6d5-48d5-bf93-9e91386c9f1a",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:28:12.660Z"
+    },
+    {
+      "kind": "feature",
+      "rationale": "Chain independently approved validation commands on success.",
+      "value": "and",
+      "id": "e5c5913f-55a5-4e07-99e7-14b45c4c3119",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:28:12.660Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the project's local renderer development server.",
+      "executable": "npm",
+      "argsPrefix": [
+        "run",
+        "dev:renderer"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "188b4f39-da28-437b-9682-6b92cef00d90",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:28:31.251Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Resolve executable locations safely.",
+      "executable": "type",
+      "argsPrefix": [
+        "-a"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "d2df642e-902b-4d3a-98d1-4b67eb2f7dd2",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:29:11.973Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "List globally installed npm packages without changing them.",
+      "executable": "npm",
+      "argsPrefix": [
+        "list",
+        "-g"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "ee31c278-d0f7-4940-9a57-6a63ebc34342",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:29:11.974Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect repository status safely.",
+      "executable": "git",
+      "argsPrefix": [
+        "status"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "a933f2f6-bcd9-4e7d-89fa-8bf3998e7202",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:30:20.596Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run local inline Node.js scripts for read-only project inspection.",
+      "executable": "node",
+      "argsPrefix": [
+        "-e"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "5e240688-eac8-4746-b9f5-21136d40fc92",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:30:20.596Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run a local Node.js smoke test script.",
+      "executable": "node",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "79fcf93e-d701-4cec-b9a1-e660ab6f5d14",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:47:58.649Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the TypeScript compiler for project validation.",
+      "executable": "tsc",
+      "argsPrefix": [
+        "--project"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "375b2166-e706-4b41-b00e-27653bd59920",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:49:09.333Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Build the project renderer.",
+      "executable": "npm",
+      "argsPrefix": [
+        "run",
+        "build:renderer"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "62a4f670-db84-4173-944b-eb976bb328c9",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:49:09.333Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Check Git diffs for whitespace errors.",
+      "executable": "git",
+      "argsPrefix": [
+        "diff",
+        "--check"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "f8e6d75b-d0e0-4fbb-a0bc-bf2c59c6d7d7",
+      "enabled": true,
+      "createdAt": "2026-09-30T20:49:09.333Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect source locations with ripgrep.",
+      "executable": "rg",
+      "argsPrefix": [
+        "-n"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "3ae8519e-318f-4ef4-8ed4-2454c1356642",
+      "enabled": true,
+      "createdAt": "2026-10-01T04:34:54.090Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "List archive contents for inspection.",
+      "executable": "tar",
+      "argsPrefix": [
+        "-tf"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "ba72e3dc-2d10-47df-8b9b-86ef4496da33",
+      "enabled": true,
+      "createdAt": "2026-10-01T04:34:54.091Z"
+    },
+    {
+      "kind": "feature",
+      "rationale": "Filter read-only diagnostic output.",
+      "value": "pipe",
+      "forbiddenArgs": [],
+      "id": "01c9e61b-10b4-4062-9e5f-4178fb450068",
+      "enabled": true,
+      "createdAt": "2026-10-01T04:34:54.091Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Create a compressed archive of project build output.",
+      "executable": "tar",
+      "argsPrefix": [
+        "-czf"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "27a9e32d-3d33-4990-9156-0066e8b23038",
+      "enabled": true,
+      "createdAt": "2026-10-01T04:35:40.006Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Allow shallow Git clones for source inspection without executing the cloned contents.",
+      "executable": "git",
+      "argsPrefix": [
+        "clone",
+        "--depth",
+        "1"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "86ffc4be-7827-4c8e-aad9-dc98f6bf2547",
+      "enabled": true,
+      "createdAt": "2026-10-02T03:49:13.287Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Check installed CLI tool versions.",
+      "executable": "pi",
+      "argsPrefix": [
+        "--version"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "11bc63e6-b70e-48e2-99bc-212c34c122e4",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:43:56.581Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Check installed CLI tool versions.",
+      "executable": "claude",
+      "argsPrefix": [
+        "--version"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "c6ae114b-ab36-47e8-9d41-292a16f54379",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:43:56.582Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Check installed CLI tool versions.",
+      "executable": "codex",
+      "argsPrefix": [
+        "--version"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "7134f39c-849c-4d53-abbe-b89cbdfd306f",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:43:56.582Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Set a restrictive umask for private user-level files.",
+      "executable": "umask",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "af4107a0-022b-4562-9be1-9dc80bfd0b7c",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:44:25.761Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect user-local JSON configuration with an inline Node.js script.",
+      "executable": "node",
+      "argsPrefix": [
+        "-"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "75dff38c-119c-4393-8405-574e73f97277",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:45:06.039Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Check metadata for a local executable.",
+      "executable": "ls",
+      "argsPrefix": [
+        "-l"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "6e2f66f5-95c2-42d3-95c7-f5876236e7c0",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:45:06.040Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect pi CLI usage safely.",
+      "executable": "pi",
+      "argsPrefix": [
+        "--help"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "c485ec79-f00e-42f1-b9b0-8ea0f530a57d",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:45:06.040Z"
+    },
+    {
+      "kind": "feature",
+      "rationale": "Redirect diagnostic output to a file.",
+      "value": "redirect",
+      "forbiddenArgs": [],
+      "id": "dfc1d3ef-e9b3-4b1d-ad4e-b026a5399151",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:45:06.040Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect Claude CLI usage without modifying state.",
+      "executable": "claude",
+      "argsPrefix": [
+        "--help"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "698ffcbd-6194-4eab-9520-7f79fb8a89b9",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:45:08.776Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Read local configuration as JSON and redact sensitive fields before displaying.",
+      "executable": "python3",
+      "argsPrefix": [
+        "-c"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "e6a8c2c6-f5e7-4944-a7ff-9abe668f2c7e",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:45:43.847Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "List environment variable names for diagnostics.",
+      "executable": "env",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "3101bedf-f3a4-4ab0-8902-5a3ad7d909b4",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:45:43.847Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Filter diagnostic text by a fixed variable-name pattern.",
+      "executable": "grep",
+      "argsPrefix": [
+        "-E"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "1bda56a1-9b90-4d6b-817f-0c615207bdf9",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:45:43.847Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run local inline Node.js inspection scripts.",
+      "executable": "node",
+      "argsPrefix": [
+        "--input-type=module"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "733db2df-66d1-42ca-b19e-ebc936f8ade5",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:47:04.892Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Find files without deleting or executing them.",
+      "executable": "find",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "869c64f6-2fe2-4532-8a22-33f79cd4ca25",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:48:31.558Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run uv-managed Python scripts without syncing project dependencies for local diagnostics.",
+      "executable": "uv",
+      "argsPrefix": [
+        "run",
+        "--no-project",
+        "python",
+        "-"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "3ac99465-a7a9-4811-abe9-219a0f46aeec",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:48:49.984Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect Claude CLI usage safely.",
+      "executable": "claude",
+      "argsPrefix": [
+        "--help"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "56ff07d5-fa55-40d1-9439-c799ea63ec24",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:48:49.984Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect Codex CLI debug help safely.",
+      "executable": "codex",
+      "argsPrefix": [
+        "debug",
+        "models",
+        "--help"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "86f852f4-f37d-401e-82d9-d3265bdb018f",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:50:58.450Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect Codex CLI debug help safely.",
+      "executable": "codex",
+      "argsPrefix": [
+        "debug",
+        "--help"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "c3843eb2-1132-4eee-ad74-52c6a53447e3",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:50:58.450Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Create directories for local backup storage.",
+      "executable": "mkdir",
+      "argsPrefix": [
+        "-p"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "7ebcfaaf-75b9-48c9-b781-0ba780256635",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:51:00.415Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Set restrictive permissions on backup files.",
+      "executable": "chmod",
+      "argsPrefix": [
+        "600"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "5b372022-7e95-44cd-9c66-1baf3ddf9229",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:51:00.415Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect bundled Codex model metadata without modifying configuration.",
+      "executable": "codex",
+      "argsPrefix": [
+        "debug",
+        "models",
+        "--bundled"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "fb2f7b84-a85a-40ec-93cc-522c924cd5dd",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:51:05.181Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect Codex app-server command usage without modifying state.",
+      "executable": "codex",
+      "argsPrefix": [
+        "app-server",
+        "--help"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "f40ecb34-2d72-4122-8326-3b3e23aae71f",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:51:15.512Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect installed Codex app-server schema-generation usage without modifying state.",
+      "executable": "codex",
+      "argsPrefix": [
+        "app-server",
+        "generate-json-schema",
+        "--help"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "113572a5-3b93-4abb-89e9-665423c1fb61",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:51:26.083Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect printable strings in a local executable without modifying it.",
+      "executable": "strings",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "ee774e32-9c79-473e-ae4b-e755472db1a7",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:51:33.982Z"
+    },
+    {
+      "kind": "feature",
+      "rationale": "Filter read-only diagnostic output.",
+      "value": "pipe",
+      "id": "5640d147-b8bd-49fe-b881-7d57be5aa972",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:51:33.983Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Set restrictive permissions on a user configuration script.",
+      "executable": "chmod",
+      "argsPrefix": [
+        "700"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "6aa9d81b-08c2-4224-b91b-23297d7e9b23",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:52:26.870Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "List locally configured Pi provider models in offline mode.",
+      "executable": "pi",
+      "argsPrefix": [
+        "--offline",
+        "--no-extensions",
+        "--list-models"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "15215b27-5734-4c1c-bc14-e0476070afab",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:52:26.870Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Check Pi provider authentication state without extensions or network access.",
+      "executable": "pi",
+      "argsPrefix": [
+        "--offline",
+        "--no-extensions",
+        "auth",
+        "check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "52be0b06-f9a0-4b77-99b2-31e8cac70081",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:52:26.870Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Allow restrictive umask setup for private diagnostic output.",
+      "executable": "umask",
+      "argsPrefix": [
+        "077"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "d41b18e2-92d0-4d62-ad9a-0fa45f524d01",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:52:52.452Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the specified local Pi JSON-mode diagnostic with extensions, tools, and session disabled.",
+      "executable": "pi",
+      "argsPrefix": [
+        "--offline",
+        "--no-extensions",
+        "--no-skills"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "ccb37692-e374-48d7-92ad-ee09e4073fbb",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:52:52.452Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect Codex CLI usage safely.",
+      "executable": "codex",
+      "argsPrefix": [
+        "exec",
+        "--help"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "47fbe676-f4b6-42f7-8f62-67abea295b74",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:53:34.834Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the Claude CLI with tools and MCP disabled for a non-persistent diagnostic.",
+      "executable": "claude",
+      "argsPrefix": [
+        "--bare"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "4779fd39-aabb-449b-b858-fbe04142d6ed",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:54:00.060Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Generate Codex app-server JSON schemas locally.",
+      "executable": "codex",
+      "argsPrefix": [
+        "app-server",
+        "generate-json-schema"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "4d83857f-2497-4a01-b85c-abe94431c931",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:55:23.651Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Count bytes in a file for diagnostics.",
+      "executable": "wc",
+      "argsPrefix": [
+        "-c"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "4df064c6-f077-4a44-af8f-c7e7e61e39b7",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:55:23.651Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect bundled Codex model metadata with a local catalog override.",
+      "executable": "codex",
+      "argsPrefix": [
+        "debug",
+        "models",
+        "--bundled",
+        "-c"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "e2153f2d-b694-4424-ae2c-4e971faf1e79",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:56:05.155Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect Codex debug model catalog output with a local catalog override.",
+      "executable": "codex",
+      "argsPrefix": [
+        "debug",
+        "models",
+        "-c"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "53e5101f-347c-488f-a116-1cb6319c2ed5",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:56:33.370Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the local model catalog refresh utility.",
+      "executable": "node",
+      "argsPrefix": [
+        "$HOME/.config/cliproxy/refresh-models.mjs"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "aa023270-3ec0-4e36-849a-92bf4acf44be",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:59:16.232Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect Codex model catalog output without modifying application state.",
+      "executable": "codex",
+      "argsPrefix": [
+        "debug",
+        "models"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "09be6587-aaaf-44aa-b1ab-04cacf3e2c4b",
+      "enabled": true,
+      "createdAt": "2026-10-02T15:59:16.232Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the Codex CLI in an ephemeral read-only sandbox for bounded diagnostics.",
+      "executable": "codex",
+      "argsPrefix": [
+        "exec",
+        "--json",
+        "--ephemeral",
+        "--skip-git-repo-check",
+        "--sandbox",
+        "read-only"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "99844060-4c97-412b-909e-f9f29af948bf",
+      "enabled": true,
+      "createdAt": "2026-10-02T16:00:34.561Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Allow routine read-only system information queries.",
+      "executable": "date",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "e5669c3c-c13b-418a-a2e2-ef30698e8775",
+      "enabled": true,
+      "createdAt": "2026-10-02T16:08:31.307Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Allow routine read-only operating system and architecture queries.",
+      "executable": "uname",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "4e3fb1bb-3c81-431c-aac7-6e822ba4f0f5",
+      "enabled": true,
+      "createdAt": "2026-10-02T16:08:31.307Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run inline Node.js inspection scripts over SSH in non-interactive mode.",
+      "executable": "ssh",
+      "argsPrefix": [
+        "-o",
+        "BatchMode=yes"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "f9ac27d7-c563-45e9-9a94-dc62de72b773",
+      "enabled": true,
+      "createdAt": "2026-10-02T16:11:00.740Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Copy specific remote documentation for local inspection.",
+      "executable": "scp",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "206cacb7-fe04-4294-9b58-db7e502987d0",
+      "enabled": true,
+      "createdAt": "2026-10-02T16:11:22.337Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run read-only SSH inspection commands.",
+      "executable": "ssh",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "11644ad2-05b2-4dc7-9a69-0c242e82f6fc",
+      "enabled": true,
+      "createdAt": "2026-10-02T16:11:22.337Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Copy user configuration files for backup.",
+      "executable": "cp",
+      "argsPrefix": [
+        "-p"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "6948422c-5714-4596-b6ce-e3ab2525e0d2",
+      "enabled": true,
+      "createdAt": "2026-10-02T16:48:46.581Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Transfer a specified local utility file to a remote user's configuration directory.",
+      "executable": "scp",
+      "argsPrefix": [
+        "-q"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "6e8f5ca4-b906-4dfe-9a85-779979611e36",
+      "enabled": true,
+      "createdAt": "2026-10-02T16:48:46.581Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Locate installed executables safely.",
+      "executable": "command",
+      "argsPrefix": [
+        "-v"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "30ff2131-86d8-4258-b2bd-dc6fe91dd586",
+      "enabled": true,
+      "createdAt": "2026-10-03T00:43:49.957Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Filter application listings for relevant app names.",
+      "executable": "grep",
+      "argsPrefix": [
+        "-Ei"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "d66d392e-d164-4d59-9daf-61cb3cd63e5f",
+      "enabled": true,
+      "createdAt": "2026-10-03T00:43:49.958Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect selected environment variable names and values for diagnostics.",
+      "executable": "printenv",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "181b9ff0-a167-4883-bd67-8b0f8996dba7",
+      "enabled": true,
+      "createdAt": "2026-10-03T00:43:49.958Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Allow read-only resolution of canonical filesystem paths.",
+      "executable": "realpath",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "a1c7350a-6119-4ae5-b318-ffdd4f8b19d8",
+      "enabled": true,
+      "createdAt": "2026-10-03T00:44:15.513Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Allow inspection of installed global Node.js package directories.",
+      "executable": "ls",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "fe134798-16bf-4e17-b7b1-77d6fe41873b",
+      "enabled": true,
+      "createdAt": "2026-10-03T00:44:15.513Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Allow inspecting a Git checkout's commit hash.",
+      "executable": "git",
+      "argsPrefix": [
+        "rev-parse"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "b49316da-56fc-424d-b794-0ac120f53a60",
+      "enabled": true,
+      "createdAt": "2026-10-03T00:44:15.513Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect latest commit metadata in a specified local repository.",
+      "executable": "git",
+      "argsPrefix": [
+        "-C"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "bf80fa48-f3c3-4482-9b31-c9995c8b0dd7",
+      "enabled": true,
+      "createdAt": "2026-10-03T00:44:37.140Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect bounded source-code line ranges.",
+      "executable": "nl",
+      "argsPrefix": [
+        "-ba"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "2ceb92a7-e695-44a0-bc19-d3b890040018",
+      "enabled": true,
+      "createdAt": "2026-10-03T00:46:40.594Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Search source text with grep patterns.",
+      "executable": "grep",
+      "argsPrefix": [
+        "-nE"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "fd1cd9c7-e9a8-4c62-9937-3b400af8cf3f",
+      "enabled": true,
+      "createdAt": "2026-10-03T00:46:40.594Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Read bounded source excerpts using sed.",
+      "executable": "sed",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "d24968a6-cb2b-4fc8-8bba-355e697f7907",
+      "enabled": true,
+      "createdAt": "2026-10-03T00:47:42.837Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Copy local directory trees when creating backups.",
+      "executable": "cp",
+      "argsPrefix": [
+        "-Rp"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "34d328c0-57a1-4486-862e-d975a793dbe0",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:32:11.579Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Record repository diffs to backup files.",
+      "executable": "git",
+      "argsPrefix": [
+        "diff",
+        "--binary"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "c2855d37-f9e3-4da5-be2a-70df4a53d07a",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:32:11.579Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Find locally installed documentation and package files.",
+      "executable": "find",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [
+        "^-delete$",
+        "^-exec(dir)?$",
+        "^-ok(dir)?$",
+        "^-fprint"
+      ],
+      "id": "4e19dbf0-7793-4559-9794-e440adab9a1d",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:34:07.157Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect code-signing identities without modifying the system.",
+      "executable": "security",
+      "argsPrefix": [
+        "find-identity"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "68e5b625-a081-4d24-a13b-fcfdcd728b29",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:34:22.477Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect macOS application code-signing metadata.",
+      "executable": "codesign",
+      "argsPrefix": [
+        "-dv"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "76430b4c-811a-429e-8490-b0404aeedcd3",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:34:22.477Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Search installed source for API and documentation symbols.",
+      "executable": "grep",
+      "argsPrefix": [
+        "-n"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "a3ad6300-c8ad-4657-b2b7-9f58452c36c6",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:34:30.797Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Read local package metadata files.",
+      "executable": "cat",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "c61c1b73-324c-49d8-8782-66cd4610621d",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:34:30.797Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run a local Python utility script for project maintenance that does not perform severe destructive actions.",
+      "executable": "python3",
+      "argsPrefix": [
+        "/tmp/upgrade-parallel.py"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "4b66e171-9b26-4f67-90d0-8bcd9ae09ae8",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:36:39.978Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the local native browser package doctor diagnostic.",
+      "executable": "node",
+      "argsPrefix": [
+        "/Users/dark/.pi/agent/npm/node_modules/pi-agent-browser-native/scripts/doctor.mjs"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "bd52958a-49fd-4f7c-a5ee-c60cf06bcc5a",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:37:08.985Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run inline Node.js validation scripts with TypeScript stripping.",
+      "executable": "node",
+      "argsPrefix": [
+        "--experimental-strip-types",
+        "--test"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "95d86832-fb20-4d8b-98f7-6f5c3862cd76",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:38:07.031Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Show the end of SDK source search results.",
+      "executable": "tail",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "2388d87e-fcbc-451a-a635-28880f758c31",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:38:41.488Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Bundle local TypeScript with esbuild for validation.",
+      "executable": "esbuild",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "d955f390-1c8f-4300-8297-fae51e257205",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:39:29.242Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the installed agent-browser doctor diagnostic.",
+      "executable": "agent-browser-darwin-arm64",
+      "argsPrefix": [
+        "doctor"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "eca70bd2-1b56-4d2c-a873-2ffe9ccdf3b9",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:39:48.115Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Verify macOS app code signatures without modifying the application.",
+      "executable": "codesign",
+      "argsPrefix": [
+        "--verify"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "0e87629b-460a-4caf-8174-57d3910d8f6b",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:43:16.991Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect npm dependency trees without changing installed packages.",
+      "executable": "npm",
+      "argsPrefix": [
+        "ls"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "59e060b2-a381-4f8c-990d-748bf66d90e9",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:46:39.941Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the TypeScript compiler for project validation.",
+      "executable": "tsc",
+      "argsPrefix": [
+        "-p"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "a5c3015b-724f-4586-8199-3f31e9b93bd0",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:47:58.315Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Fetch remote documentation files without executing them.",
+      "executable": "curl",
+      "argsPrefix": [
+        "-fsSL"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [
+        "^-X$",
+        "^(DELETE|POST|PUT|PATCH)$"
+      ],
+      "id": "0e396961-e3ea-41e8-8e66-6117b7b18ed8",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:47:58.315Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Allow running local Python scripts for focused project maintenance that do not cause severe destructive harm.",
+      "executable": "python3",
+      "argsPrefix": [
+        "/tmp/swath-reasoning/modify.py"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "61957fa1-9e0b-4aab-891e-e3b816de0fe9",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:50:58.619Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Use fail-fast shell behavior.",
+      "executable": "set",
+      "argsPrefix": [
+        "-e"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "f11602bd-c280-4122-b6b5-8cb573822f9f",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:51:29.796Z"
+    },
+    {
+      "kind": "regex",
+      "rationale": "Set a local backup path variable.",
+      "value": "^backup=/Users/dark/\\.pi/backups/[A-Za-z0-9._-]+$",
+      "id": "3def62a6-e3e0-4d11-b7ae-2dbf4f3e92b4",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:51:29.796Z"
+    },
+    {
+      "kind": "regex",
+      "rationale": "Set a local staging path variable.",
+      "value": "^stage=/Applications/[A-Za-z0-9._-]+$",
+      "id": "e8ce13a2-332a-4cbf-ab25-db2e03fb5a23",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:51:29.796Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Check expected paths before making an app backup or install.",
+      "executable": "test",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "7f60377e-f209-434c-af08-13c6d6bff8f8",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:51:29.796Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Copy a macOS application bundle to a designated backup or staging location.",
+      "executable": "ditto",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "dcce4c07-9af1-480d-902a-329318c5e672",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:51:29.796Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Move a staged app bundle into place or restore a previous bundle.",
+      "executable": "mv",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "2929214c-1510-47a0-b9f6-b970c647eea7",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:51:29.797Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Refresh the macOS Launch Services app registration.",
+      "executable": "lsregister",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "1c18243b-fc57-4987-91c4-445adef844c5",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:51:29.797Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect the specified running process.",
+      "executable": "ps",
+      "argsPrefix": [
+        "-p"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "0af26374-b71f-44e4-8b10-2168371204f3",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:51:29.797Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Compute file hashes without modification.",
+      "executable": "shasum",
+      "argsPrefix": [
+        "-a",
+        "256"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "7df7212f-02b8-4bfd-b8c1-3e35f4d76c63",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:51:29.797Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run Node's targeted test runner for local test files.",
+      "executable": "node",
+      "argsPrefix": [
+        "--test"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "93c841d1-6376-4682-8c5c-88883b180d1a",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:52:04.741Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "List file metadata with ls.",
+      "executable": "ls",
+      "argsPrefix": [
+        "-ld"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "06ea686c-95b6-4da2-b617-199248818468",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:52:04.741Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the local Node test runner with a loader for extension tests.",
+      "executable": "node",
+      "argsPrefix": [
+        "--loader"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "c1d47407-0fb5-49eb-a0e3-1b629cce91c6",
+      "enabled": true,
+      "createdAt": "2026-10-03T01:59:07.856Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Apply a focused in-place source substitution with sed.",
+      "executable": "sed",
+      "argsPrefix": [
+        "-i"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "773f17c7-601d-447c-935a-0ba0afdae6d6",
+      "enabled": true,
+      "createdAt": "2026-10-03T02:00:54.171Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Check formatting without modifying files.",
+      "executable": "prettier",
+      "argsPrefix": [
+        "--check"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "b2cd0359-3b99-43e2-b452-d8210ee7062a",
+      "enabled": true,
+      "createdAt": "2026-10-03T02:02:06.526Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect file modification timestamps and metadata.",
+      "executable": "stat",
+      "argsPrefix": [
+        "-f"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "d25cbafc-e978-4ddc-a8ec-0de32a494dd7",
+      "enabled": true,
+      "createdAt": "2026-10-03T02:04:39.180Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Filter bounded diagnostic search results.",
+      "executable": "head",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "317b1a88-cdf6-47af-8d1c-3fd8d02e4407",
+      "enabled": true,
+      "createdAt": "2026-10-03T02:04:39.180Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Check GitHub CLI authentication status.",
+      "executable": "gh",
+      "argsPrefix": [
+        "auth",
+        "status"
+      ],
+      "allowAdditionalArgs": false,
+      "forbiddenArgs": [],
+      "id": "b72d5d52-bff7-42f4-91e4-c36cc5e97ec2",
+      "enabled": true,
+      "createdAt": "2026-10-03T02:14:14.604Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Resolve symbolic links without modifying files.",
+      "executable": "readlink",
+      "argsPrefix": [],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "7b27e1f0-d52b-4460-bcde-d25dcffceae0",
+      "enabled": true,
+      "createdAt": "2026-10-03T02:15:57.888Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Fetch remote repository updates without modifying working files.",
+      "executable": "git",
+      "argsPrefix": [
+        "fetch"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "d00da0eb-a6e5-4efc-a090-8772fc76f63c",
+      "enabled": true,
+      "createdAt": "2026-10-03T02:16:23.808Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Inspect commit ancestry or counts without modifying the repository.",
+      "executable": "git",
+      "argsPrefix": [
+        "rev-list"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "b9acd777-8a19-4dd5-9360-85fd7ee15061",
+      "enabled": true,
+      "createdAt": "2026-10-03T02:16:23.808Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the TypeScript compiler with a project configuration for validation.",
+      "executable": "node",
+      "argsPrefix": [
+        "node_modules/typescript/bin/tsc",
+        "-p"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "438e18d9-d797-496c-b116-988c4e7950c9",
+      "enabled": true,
+      "createdAt": "2026-10-03T02:19:33.806Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run Node tests with the experimental TypeScript loader.",
+      "executable": "node",
+      "argsPrefix": [
+        "--experimental-strip-types",
+        "--loader"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "9d131cf2-cbe7-471c-bf05-efe4772ab1f7",
+      "enabled": true,
+      "createdAt": "2026-10-03T02:20:37.335Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the local Node.js transport test.",
+      "executable": "node",
+      "argsPrefix": [
+        "--experimental-strip-types"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "c1616e78-22f4-45c6-afad-5efb10207499",
+      "enabled": true,
+      "createdAt": "2026-10-03T02:20:37.335Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the project's test script.",
+      "executable": "npm",
+      "argsPrefix": [
+        "test"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "04fb5109-9ba0-4135-ad4a-628ebd84041f",
+      "enabled": true,
+      "createdAt": "2026-10-03T02:20:56.179Z"
+    },
+    {
+      "kind": "feature",
+      "value": "sequence",
+      "rationale": "Permit sequencing independently allowed inspection commands.",
+      "id": "c43c7fc1-651f-42b5-be37-0bdb212ca5da",
+      "enabled": true,
+      "createdAt": "2026-10-04T01:18:54.679Z"
     }
   ]
 }
