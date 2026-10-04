@@ -57,6 +57,7 @@ assert.deepEqual(loadout.hiddenDeclarations, BACKENDS);
 assert.match(loadout.descriptions.search, /cursor:string/);
 const prompt = { cwd: '/tmp', selectedTools: ['search', 'bash', ...BACKENDS], toolSnippets: { exa_web_search: 'old' }, toolGuidelines: { fffind: ['old'], bash: ['Never delete files without permission'] }, promptGuidelines: [], sections: {} };
 hook({ systemPromptOptions: prompt });
+for (const name of BACKENDS) assert.ok(prompt.selectedTools.includes(name), 'Hidden declarations must remain callable');
 assert.equal(prompt.sections.rules.includes('Use bash for file operations'), false);
 assert.match(prompt.sections.rules, /Never delete/);
 assert.equal(prompt.toolSnippets.exa_web_search, undefined);

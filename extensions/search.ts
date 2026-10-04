@@ -88,9 +88,8 @@ export default function search(pi: ExtensionAPI): void {
   pi.on("before_agent_start", (event) => {
     const prompt = event.systemPromptOptions;
     if (!prompt.selectedTools.includes("search")) return;
-    prompt.selectedTools = prompt.selectedTools.filter(
-      (name) => !BACKENDS.includes(name as Backend),
-    );
+    // selectedTools also controls nested callability. Hide declarations in prepareLoadout,
+    // not here, so registered backends remain available to ctx.executeTool.
     for (const name of BACKENDS) {
       delete prompt.toolSnippets[name];
       delete prompt.toolGuidelines[name];

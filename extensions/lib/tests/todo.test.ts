@@ -14,6 +14,7 @@ const source = readFileSync(new URL("../../todo.ts", import.meta.url), "utf8")
 const load = new Function(
   "Type",
   "StringEnum",
+  "Text",
   `${stripTypeScriptTypes(source)}; return todoExtension;`,
 );
 const schema = new Proxy({}, { get: () => () => ({}) });
@@ -24,7 +25,16 @@ function harness() {
   const hooks: Record<string, any> = {};
   let serial = 0;
   const ctx = { sessionManager: { getBranch: () => branch } };
-  load(schema, () => ({}))({
+  load(
+    schema,
+    () => ({}),
+    class {
+      text: string;
+      constructor(text: string) {
+        this.text = text;
+      }
+    },
+  )({
     on: (name: string, handler: any) => {
       hooks[name] = handler;
     },
@@ -43,6 +53,12 @@ function harness() {
     hooks,
     ctx,
     run: (params: any) => tool.execute("call", params),
+    render: (result: any) =>
+      tool.renderResult(
+        result,
+        {},
+        { fg: (_color: string, text: string) => text },
+      ).text,
     branch: () => branch,
     restore: (entries: any[]) => {
       branch = entries;
@@ -87,6 +103,8 @@ test("concise deltas retain full details and durable branch-local state", async 
   const initial = [...h.branch()];
   const invalid = await h.run({ action: "complete", taskId: "b" });
   assert.match(invalid.content[0].text, /still blocked/);
+  assert.equal(invalid.isError, true);
+  assert.match(h.render(invalid), /still blocked/);
   assert.equal(h.branch().length, 1);
   const completed = await h.run({ action: "complete", taskId: "a" });
   assert.match(completed.content[0].text, /completed: a; newly unblocked: b/);
@@ -95,7 +113,8 @@ test("concise deltas retain full details and durable branch-local state", async 
   assert.equal(set.details.web.tasks[0].status, "pending");
   assert.equal(completed.details.newlyUnblocked[0].id, "b");
   const progressed = [...h.branch()];
-  await h.run({ action: "clear" });
+  const cleared = await h.run({ action: "clear" });
+  assert.equal(h.render(cleared), "Todo web cleared.");
   await h.hooks.session_start({}, h.ctx);
   assert.equal((await h.run({ action: "get" })).details.web, undefined);
   h.restore(initial);
@@ -110,6 +129,31 @@ test("concise deltas retain full details and durable branch-local state", async 
     (await h.run({ action: "get" })).details.web.tasks[0].status,
     "completed",
   );
+});
+
+test("rejected todo operations report errors without changing state", async () => {
+  const h = harness();
+  for (const params of [
+    { action: "complete", taskId: "a" },
+    { action: "set", web: { title: "Invalid", tasks: [{ id: "a" }] } },
+    { action: "unknown" },
+  ]) {
+    const result = await h.run(params);
+    assert.equal(result.isError, true);
+    assert.equal(h.branch().length, 0);
+    assert.equal(h.render(result), result.details.error);
+  }
+  await h.run({ action: "set", web });
+  for (const params of [
+    { action: "complete" },
+    { action: "complete", taskId: "missing" },
+    { action: "complete", taskId: "b" },
+  ]) {
+    const result = await h.run(params);
+    assert.equal(result.isError, true);
+    assert.equal(h.branch().length, 1);
+    assert.equal(h.render(result), result.details.error);
+  }
 });
 
 test("checkpoint projects active IDs, blockers and criteria once without waking", async () => {

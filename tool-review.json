@@ -1,8 +1,8 @@
 {
   "reviewer": {
-    "provider": "openai-codex",
+    "provider": "cliproxy",
     "model": "gpt-6-luna",
-    "thinkingLevel": "medium"
+    "thinkingLevel": "low"
   },
   "gatedTools": [
     "bash",
@@ -5303,6 +5303,63 @@
       "id": "04fb5109-9ba0-4135-ad4a-628ebd84041f",
       "enabled": true,
       "createdAt": "2026-10-03T02:20:56.179Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run targeted project unit tests.",
+      "value": null,
+      "executable": "npm",
+      "argsPrefix": [
+        "run",
+        "test:unit"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "89d688cc-ea17-4617-b50c-7232968af8c9",
+      "enabled": true,
+      "createdAt": "2026-10-03T03:12:38.768Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the project's macOS installation script.",
+      "value": null,
+      "executable": "npm",
+      "argsPrefix": [
+        "run",
+        "install:mac"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "99bd399e-04c3-4999-b86a-1b5a8dd4cb65",
+      "enabled": true,
+      "createdAt": "2026-10-03T03:23:47.841Z"
+    },
+    {
+      "kind": "structured",
+      "rationale": "Run the project's typechecking script.",
+      "value": null,
+      "executable": "npm",
+      "argsPrefix": [
+        "run",
+        "typecheck"
+      ],
+      "allowAdditionalArgs": true,
+      "forbiddenArgs": [],
+      "id": "b5e5f4df-8ab0-47df-8f0d-4a9689aa5265",
+      "enabled": true,
+      "createdAt": "2026-10-03T03:28:39.002Z"
+    },
+    {
+      "kind": "feature",
+      "rationale": "Chain independently safe validation commands on success.",
+      "value": "and",
+      "executable": null,
+      "argsPrefix": null,
+      "allowAdditionalArgs": null,
+      "forbiddenArgs": [],
+      "id": "acecb489-1af3-4932-93c6-612192d11938",
+      "enabled": true,
+      "createdAt": "2026-10-03T03:28:39.002Z"
     }
   ]
 }

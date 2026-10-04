@@ -538,6 +538,7 @@ export default function todoExtension(pi: ExtensionAPI): void {
           return {
             content: [{ type: "text", text: error }],
             details: { ...state, error, lastAction: "set" } satisfies TodoState,
+            isError: true,
           };
         }
         state = { web: result.web, lastAction: "set" };
@@ -556,11 +557,13 @@ export default function todoExtension(pi: ExtensionAPI): void {
               error: "no web",
               lastAction: "complete",
             } satisfies TodoState,
+            isError: true,
           };
         const normalized = normalizeCompletionRequests(params);
         if (normalized.errors.length) {
           const error = `Invalid completion request:\n${normalized.errors.map((e) => `- ${e}`).join("\n")}`;
           return {
+            isError: true,
             content: [{ type: "text", text: error }],
             details: {
               ...state,
@@ -593,6 +596,7 @@ export default function todoExtension(pi: ExtensionAPI): void {
         if (validationErrors.length) {
           const error = `Could not complete task batch:\n${validationErrors.map((e) => `- ${e}`).join("\n")}`;
           return {
+            isError: true,
             content: [{ type: "text", text: error }],
             details: {
               ...state,
@@ -639,6 +643,7 @@ export default function todoExtension(pi: ExtensionAPI): void {
       return {
         content: [{ type: "text", text: `Unknown action ${params.action}` }],
         details: { ...state, error: "unknown action" } satisfies TodoState,
+        isError: true,
       };
     },
     renderCall(args, theme) {
@@ -660,9 +665,13 @@ export default function todoExtension(pi: ExtensionAPI): void {
     },
     renderResult(result, _options, theme) {
       const d = result.details as TodoState | undefined;
+      if (d?.error) return new Text(theme.fg("error", d.error), 0, 0);
       if (!d?.web)
         return new Text(
-          theme.fg(d?.error ? "error" : "muted", d?.error ?? "No todo web"),
+          theme.fg(
+            "muted",
+            result.content.find((part) => part.type === "text")?.text ?? "No todo web",
+          ),
           0,
           0,
         );
