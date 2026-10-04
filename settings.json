@@ -1,7 +1,7 @@
 {
-  "lastChangelogVersion": "0.99.1",
-  "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.6-terra",
+  "lastChangelogVersion": "1.0.1",
+  "defaultProvider": "cliproxy",
+  "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "medium",
   "theme": "reference-tool-cards",
   "packages": [
@@ -13,18 +13,20 @@
     "npm:pi-mcp-adapter"
   ],
   "enabledModels": [
-    "openai-codex/gpt-6-sol",
-    "openai-codex/gpt-6-luna",
-    "openai-codex/gpt-6-astra"
+    "cliproxy/gpt-6.1-sol",
+    "cliproxy/gpt-6-astra",
+    "cliproxy/gpt-6-luna"
   ],
   "extensions": [
     "-extensions/image-analysis-handoff.ts",
-    "-extensions/manual-openrouter-model-entry.ts"
+    "-extensions/manual-openrouter-model-entry.ts",
+    "-extensions/codex-everywhere.ts",
+    "-builtin:mcp"
   ],
   "steeringMode": "one-at-a-time",
   "followUpMode": "one-at-a-time",
   "quietStartup": false,
   "enableInstallTelemetry": false,
-  "transport": "websocket-cached",
+  "transport": "auto",
   "showCacheMissNotices": true
 }

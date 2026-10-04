@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "nextId": 15,
+  "nextId": 16,
   "memories": [
     {
       "id": 1,
@@ -85,6 +85,12 @@
       "text": "When follow-up questions are needed, ask them in sensible batches of more than one whenever multiple independent or related decisions can be clarified together; do not force batching when only one meaningful question exists.",
       "createdAt": "2026-08-08T04:20:59.258Z",
       "updatedAt": "2026-08-08T04:20:59.258Z"
+    },
+    {
+      "id": 15,
+      "text": "When asked to fix a feature or bug, complete the requested functionality end to end, including persistence/reopen behavior and its verification; do not leave a reported issue knowingly unresolved.",
+      "createdAt": "2026-09-24T00:34:53.755Z",
+      "updatedAt": "2026-09-24T00:34:53.755Z"
     }
   ]
 }
